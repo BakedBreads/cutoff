@@ -66,17 +66,35 @@ EAS is set up too and works, but its free queue sat on a job for thirty hours he
 so GitHub is the faster horse. For EAS you need [Node](https://nodejs.org) and a free
 [Expo account](https://expo.dev/signup) — no Android Studio and no Xcode either way.
 
+### The GitHub route (what this project uses)
+
+Push, wait, download:
+
+```bash
+git push origin main
+```
+
+The run appears under the repo's **Actions** tab. When it goes green, the APK is
+attached to it as the `cutoff-apk` artifact. Publishing it to a Releases page gives a
+link that downloads a raw `.apk` on a phone, rather than a zip:
+
+```bash
+gh release create v1.2.0 Cutoff.apk --title "Cutoff v1.2"
+```
+
+Working on the code locally first:
+
 ```bash
 npm install
 ```
-
-Pin every package to the versions this Expo SDK expects:
 
 ```bash
 npx expo install --fix
 ```
 
-Log in and link the project (this rewrites the placeholder `projectId` in `app.json`):
+### The EAS route
+
+Log in and link the project (this rewrites the `projectId` in `app.json`):
 
 ```bash
 npx eas-cli@latest login
@@ -86,14 +104,13 @@ npx eas-cli@latest login
 npx eas-cli@latest init
 ```
 
-### Android — the APK you actually want
-
 ```bash
 npx eas-cli@latest build -p android --profile preview
 ```
 
 When it finishes, EAS gives you a QR code and a download link. Open it on the phone,
-install the APK (Android will ask you to allow installs from that source), done.
+install the APK (Android will ask you to allow installs from that source), done —
+assuming the queue picks it up.
 
 ### iPhone
 
@@ -122,13 +139,14 @@ native blocker working.
 
 ## First run on Android
 
-Cutoff will nag you for one permission and suggest a second.
+Cutoff needs two permissions, and it will nag you for both.
 
-1. **Display over other apps** — *required*. This is what lets the block screen
-   cover TikTok. It's also what exempts Cutoff from Android's background
-   activity-start restrictions, so without it nothing interrupts you at all.
-2. **Usage access** — *optional*, only for the lockout window. It lets Cutoff notice
-   you reopening the app it just cut you off from.
+1. **Display over other apps** — This is what lets the block screen cover TikTok.
+   It's also what exempts Cutoff from Android's background activity-start
+   restrictions, so without it nothing interrupts you at all.
+2. **Usage access** — This is what makes a block *stick*. It lets Cutoff notice you
+   reopening the app it just cut you off from, and put the screen straight back up.
+   Without it the timer fires once and that's the end of it.
 
 Also worth doing: set Cutoff's battery usage to **Unrestricted**. Samsung, Xiaomi,
 Oppo and friends kill background services aggressively, which can cut a long
