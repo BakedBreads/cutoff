@@ -43,7 +43,17 @@ export const saveApps = (apps) => write(K_APPS, apps);
 export const loadSettings = async () => {
   const stored = await read(K_SETTINGS, {});
   // Merge so new setting keys pick up defaults on upgrade.
-  return { ...DEFAULT_SETTINGS, ...stored };
+  const merged = { ...DEFAULT_SETTINGS, ...stored };
+
+  // v1.0 kept a single `message`; v1.1 rotates through a list.
+  if (!Array.isArray(merged.messages) || merged.messages.length === 0) {
+    merged.messages = stored.message
+      ? [stored.message]
+      : [...DEFAULT_SETTINGS.messages];
+  }
+  delete merged.message;
+
+  return merged;
 };
 
 export const saveSettings = (settings) => write(K_SETTINGS, settings);

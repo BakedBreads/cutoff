@@ -5,13 +5,13 @@ import { human, initials } from '../format';
 import { canHardBlock, getAppIcon, isAppInstalled } from '../blocker';
 import { resolveAndroidPackage } from '../session';
 import { HardPress } from './ui';
-import { IconClock, IconAlert } from '../icons';
+import { IconClock, IconAlert, IconLock } from '../icons';
 
 /**
  * One app on the home grid. On Android we pull the real launcher icon out of
  * PackageManager; everywhere else we fall back to a mono monogram.
  */
-export default function AppTile({ app, size, onPress, onLongPress }) {
+export default function AppTile({ app, size, blocked, onPress, onLongPress }) {
   const [icon, setIcon] = useState(null);
   const [missing, setMissing] = useState(false);
 
@@ -30,6 +30,7 @@ export default function AppTile({ app, size, onPress, onLongPress }) {
     <HardPress
       onPress={onPress}
       onLongPress={onLongPress}
+      fill={blocked ? C.ink : C.paper}
       style={{ width: size }}
       inner={{ padding: 14, height: size * 1.06 }}
     >
@@ -39,14 +40,16 @@ export default function AppTile({ app, size, onPress, onLongPress }) {
           width: 52,
           height: 52,
           borderWidth: 2,
-          borderColor: C.ink,
-          backgroundColor: C.wash,
+          borderColor: blocked ? C.paper : C.ink,
+          backgroundColor: blocked ? C.ink : C.wash,
           alignItems: 'center',
           justifyContent: 'center',
           overflow: 'hidden',
         }}
       >
-        {icon ? (
+        {blocked ? (
+          <IconLock size={22} color={C.paper} />
+        ) : icon ? (
           <Image source={{ uri: icon }} style={{ width: 48, height: 48 }} resizeMode="cover" />
         ) : (
           <Text
@@ -67,13 +70,21 @@ export default function AppTile({ app, size, onPress, onLongPress }) {
 
       <Text
         numberOfLines={1}
-        style={[T.label, { fontSize: 15, letterSpacing: 0.2, marginBottom: 8 }]}
+        style={[
+          T.label,
+          { fontSize: 15, letterSpacing: 0.2, marginBottom: 8, color: blocked ? C.paper : C.ink },
+        ]}
       >
         {app.name}
       </Text>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        {missing ? (
+        {blocked ? (
+          <>
+            <IconLock size={13} color={C.paper} />
+            <Text style={[T.kicker, { color: C.paper, letterSpacing: 0.9 }]}>BLOCKED</Text>
+          </>
+        ) : missing ? (
           <>
             <IconAlert size={13} color={C.danger} />
             <Text style={[T.kicker, { color: C.danger, letterSpacing: 0.9 }]}>NOT INSTALLED</Text>

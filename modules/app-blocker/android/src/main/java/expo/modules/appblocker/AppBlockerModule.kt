@@ -29,6 +29,9 @@ class SessionConfig : Record {
     @Field var dark: Boolean = false
     @Field var vibrate: Boolean = true
     @Field var launch: Boolean = true
+    @Field var soundUri: String = ""
+    @Field var soundEnabled: Boolean = true
+    @Field var loopSound: Boolean = false
 }
 
 class AppBlockerModule : Module() {
@@ -128,7 +131,10 @@ class AppBlockerModule : Module() {
                 title = config.title,
                 subtitle = config.subtitle,
                 dark = config.dark,
-                vibrate = config.vibrate
+                vibrate = config.vibrate,
+                soundUri = config.soundUri,
+                soundEnabled = config.soundEnabled,
+                loopSound = config.loopSound
             )
             Overlay.dismiss(context)
             BlockerService.start(context)
@@ -172,17 +178,37 @@ class AppBlockerModule : Module() {
                 "durationMs" to Session.durationMs(context).toDouble(),
                 "expired" to Session.isExpired(context),
                 "inLockout" to Session.inLockout(context),
+                "blockedForever" to Session.isIndefinite(context),
                 "lockoutRemainingMs" to
-                    (Session.lockoutUntil(context) - now).coerceAtLeast(0L).toDouble(),
+                    if (Session.isIndefinite(context)) 0.0
+                    else (Session.lockoutUntil(context) - now).coerceAtLeast(0L).toDouble(),
                 "appId" to Session.appId(context),
                 "packageName" to Session.blockedPackage(context),
                 "label" to Session.label(context),
+                "message" to Session.title(context),
                 "overlayShowing" to Overlay.isShowing
             )
         }
 
+        // ---- sounds ---------------------------------------------------------
+
+        /** Every alarm/notification tone on the device, for the in-app chooser. */
+        AsyncFunction("listSounds") { Sounds.list(context) }
+
+        Function("defaultSoundUri") { Sounds.defaultUri() }
+
+        /** Plays a tone once so you can audition it from settings. */
+        Function("previewSound") { uri: String ->
+            Sounds.play(context, uri, false)
+        }
+
+        Function("stopSound") { Sounds.stop() }
+
+        /** True when alarm volume is zero — settings warns you the tone won't be heard. */
+        Function("isSilent") { Sounds.isSilent(context) }
+
         /** Fires the block screen right now, so you can see your wording before committing. */
-        Function("previewBlockScreen") { title: String, subtitle: String, dark: Boolean ->
+        Function("previewBlockScreen") { title: String, subtitle: String, dark: Boolean, soundUri: String, soundEnabled: Boolean ->
             if (!Overlay.canDraw(context)) return@Function false
             Overlay.show(
                 context = context,
@@ -192,7 +218,10 @@ class AppBlockerModule : Module() {
                 spentMs = 0L,
                 lockoutMs = 0L,
                 dark = dark,
-                vibrate = false
+                vibrate = false,
+                soundUri = soundUri,
+                soundEnabled = soundEnabled,
+                loopSound = false
             )
             true
         }

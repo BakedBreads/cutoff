@@ -1,18 +1,22 @@
-import React from 'react';
-import { View, Text, StatusBar } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StatusBar, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, MONO } from '../theme';
 import { clock, humanMs } from '../format';
 import { canHardBlock } from '../blocker';
 import { HardPress } from '../components/ui';
+import { HoldButton, EASE } from '../components/motion';
+import { IconLock } from '../icons';
 
 /**
- * In-app "time's up". On iOS this *is* the block. On Android it's the echo of
- * the native overlay, shown whenever you open Cutoff after a session ended.
+ * Shown inside the app once a session has ended. When the block is endless this
+ * is the only place it can be lifted — the overlay out in TikTok deliberately
+ * offers no way to stop it.
  */
-export default function TimeUpScreen({ state, settings, onDone, onEndLockout }) {
+export default function TimeUpScreen({ state, settings, message, onDone, onEndLockout }) {
   const insets = useSafeAreaInsets();
   const dark = !!settings.darkBlockScreen;
+  const blocked = state.inLockout;
 
   const bg = dark ? '#0A0A0A' : C.bg;
   const ink = dark ? '#F5F4F1' : C.ink;
@@ -20,6 +24,17 @@ export default function TimeUpScreen({ state, settings, onDone, onEndLockout }) 
   const btnFill = dark ? '#F5F4F1' : C.ink;
   const btnInk = dark ? '#0A0A0A' : C.bg;
   const shadow = dark ? '#3A3A40' : C.ink;
+
+  // Entrance: the rule draws itself, then the headline drops in.
+  const rule = useRef(new Animated.Value(0)).current;
+  const body = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(rule, { toValue: 1, duration: 320, easing: EASE, useNativeDriver: false }),
+      Animated.timing(body, { toValue: 1, duration: 420, easing: EASE, useNativeDriver: true }),
+    ]).start();
+  }, [rule, body]);
 
   return (
     <View
@@ -33,7 +48,13 @@ export default function TimeUpScreen({ state, settings, onDone, onEndLockout }) 
     >
       <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} />
 
-      <View style={{ width: 44, height: 3, backgroundColor: ink }} />
+      <Animated.View
+        style={{
+          height: 3,
+          backgroundColor: ink,
+          width: rule.interpolate({ inputRange: [0, 1], outputRange: [0, 44] }),
+        }}
+      />
       <Text
         style={{
           fontFamily: MONO,
@@ -44,10 +65,19 @@ export default function TimeUpScreen({ state, settings, onDone, onEndLockout }) 
           marginTop: 14,
         }}
       >
-        CUTOFF / SESSION ENDED
+        {blocked ? 'CUTOFF / BLOCKED' : 'CUTOFF / SESSION ENDED'}
       </Text>
 
-      <View style={{ flex: 1, justifyContent: 'center' }}>
+      <Animated.View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          opacity: body,
+          transform: [
+            { translateY: body.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) },
+          ],
+        }}
+      >
         <Text
           style={{
             fontFamily: MONO,
@@ -58,7 +88,7 @@ export default function TimeUpScreen({ state, settings, onDone, onEndLockout }) 
             color: ink,
           }}
         >
-          {String(settings.message || "TIME'S UP").toUpperCase()}
+          {String(message || "TIME'S UP").toUpperCase()}
         </Text>
 
         {settings.submessage ? (
@@ -91,59 +121,87 @@ export default function TimeUpScreen({ state, settings, onDone, onEndLockout }) 
           {humanMs(state.durationMs).toUpperCase()} SPENT
         </Text>
 
-        {state.inLockout ? (
+        {blocked ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9 }}>
+            <IconLock size={13} color={dim} />
+            <Text
+              style={{
+                fontFamily: MONO,
+                fontSize: 12,
+                fontWeight: '700',
+                letterSpacing: 1.2,
+                color: dim,
+              }}
+            >
+              {state.blockedForever
+                ? 'BLOCKED UNTIL YOU STOP IT'
+                : `LOCKED FOR ${clock(state.lockoutRemainingMs)} MORE`}
+            </Text>
+          </View>
+        ) : null}
+        <View style={{ height: 1, backgroundColor: dim, marginTop: 14, opacity: 0.5 }} />
+      </Animated.View>
+
+      {blocked && canHardBlock ? (
+        <>
           <Text
             style={{
               fontFamily: MONO,
-              fontSize: 12,
-              fontWeight: '700',
-              letterSpacing: 1.4,
+              fontSize: 11,
+              lineHeight: 17,
               color: dim,
-              marginTop: 7,
+              marginBottom: 14,
             }}
           >
-            LOCKED FOR {clock(state.lockoutRemainingMs)} MORE
+            {String(state.label || 'The app').toUpperCase()} stays blocked every time you open it.
+            Hold to lift it.
           </Text>
-        ) : null}
-        <View style={{ height: 1, backgroundColor: dim, marginTop: 14, opacity: 0.5 }} />
-      </View>
+          <HoldButton
+            label="HOLD TO UNBLOCK"
+            holdLabel="KEEP HOLDING…"
+            duration={2200}
+            onComplete={onEndLockout}
+            fill={btnFill}
+            ink={btnInk}
+          />
 
-      <HardPress
-        onPress={onDone}
-        fill={btnFill}
-        shadow={shadow}
-        inner={{ paddingVertical: 19, alignItems: 'center' }}
-      >
-        <Text
-          style={{
-            fontFamily: MONO,
-            fontSize: 14,
-            fontWeight: '700',
-            letterSpacing: 2,
-            color: btnInk,
-          }}
+          {/* Lets you get on with the rest of the app without lifting the block. */}
+          <Text
+            onPress={onDone}
+            style={{
+              fontFamily: MONO,
+              fontSize: 11,
+              fontWeight: '700',
+              letterSpacing: 1.6,
+              color: dim,
+              textAlign: 'center',
+              marginTop: 18,
+              paddingVertical: 6,
+            }}
+          >
+            LEAVE IT BLOCKED
+          </Text>
+        </>
+      ) : (
+        <HardPress
+          onPress={onDone}
+          fill={btnFill}
+          shadow={shadow}
+          inner={{ paddingVertical: 19, alignItems: 'center' }}
         >
-          I'M DONE
-        </Text>
-      </HardPress>
-
-      {state.inLockout && canHardBlock ? (
-        <Text
-          onPress={onEndLockout}
-          style={{
-            fontFamily: MONO,
-            fontSize: 11,
-            fontWeight: '700',
-            letterSpacing: 1.6,
-            color: dim,
-            textAlign: 'center',
-            marginTop: 20,
-            paddingVertical: 6,
-          }}
-        >
-          LIFT THE LOCK EARLY
-        </Text>
-      ) : null}
+          <Text
+            style={{
+              fontFamily: MONO,
+              fontSize: 14,
+              fontWeight: '700',
+              letterSpacing: 2,
+              color: btnInk,
+            }}
+          >
+            OK
+          </Text>
+        </HardPress>
+      )}
     </View>
   );
 }

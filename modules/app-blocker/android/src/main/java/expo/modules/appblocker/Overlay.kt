@@ -59,7 +59,10 @@ object Overlay {
         spentMs: Long,
         lockoutMs: Long,
         dark: Boolean,
-        vibrate: Boolean
+        vibrate: Boolean,
+        soundUri: String = "",
+        soundEnabled: Boolean = false,
+        loopSound: Boolean = false
     ) = main.post {
         if (root != null) return@post
         if (!canDraw(context)) return@post
@@ -90,6 +93,7 @@ object Overlay {
             wm(ctx).addView(view, params)
             root = view
             if (vibrate) buzz(ctx)
+            if (soundEnabled) Sounds.play(ctx, soundUri, loopSound)
         } catch (e: Exception) {
             root = null
         }
@@ -107,6 +111,7 @@ object Overlay {
     }
 
     fun dismiss(context: Context) = main.post {
+        Sounds.stop()
         val view = root ?: return@post
         try {
             wm(context.applicationContext).removeView(view)
@@ -196,8 +201,10 @@ object Overlay {
 
         val lock = mono(ctx, "", 12f, p.dim, bold = true).apply {
             letterSpacing = 0.14f
-            visibility = if (lockoutMs > 0) View.VISIBLE else View.GONE
-            if (lockoutMs > 0) text = "LOCKED FOR ${humanMs(lockoutMs).uppercase()}"
+            visibility = if (lockoutMs != 0L) View.VISIBLE else View.GONE
+            text = if (lockoutMs < 0L) "BLOCKED UNTIL YOU STOP IT IN CUTOFF"
+                   else if (lockoutMs > 0L) "LOCKED FOR ${humanMs(lockoutMs).uppercase()}"
+                   else ""
         }
         lockoutLabel = lock
         col.addView(lock, lp(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT, dp(ctx, 6)))
@@ -205,7 +212,7 @@ object Overlay {
 
         // ── primary button, with a hard offset shadow ───────────────────────
         col.addView(
-            hardButton(ctx, p, "I'M DONE") { dismissAndGoHome(ctx) },
+            hardButton(ctx, p, "CLOSE") { dismissAndGoHome(ctx) },
             lp(LinearLayout.LayoutParams.MATCH_PARENT, dp(ctx, 60), dp(ctx, 34)).also {
                 it.rightMargin = dp(ctx, 5)
             }
@@ -213,8 +220,8 @@ object Overlay {
 
         // ── secondary text action ───────────────────────────────────────────
         col.addView(
-            mono(ctx, "OPEN CUTOFF", 12f, p.dim, bold = true).apply {
-                letterSpacing = 0.18f
+            mono(ctx, "STILL BLOCKED  ·  OPEN CUTOFF TO STOP", 11f, p.dim, bold = true).apply {
+                letterSpacing = 0.14f
                 gravity = Gravity.CENTER
                 setPadding(dp(ctx, 12), dp(ctx, 16), dp(ctx, 12), dp(ctx, 4))
                 isClickable = true

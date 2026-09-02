@@ -53,6 +53,20 @@ object Session {
 
     fun lockoutMs(ctx: Context) = prefs(ctx).getLong("lockoutMs", 0L)
 
+    /** Tone played when the block screen fires. Empty = system default alarm. */
+    fun soundUri(ctx: Context): String = prefs(ctx).getString("soundUri", "") ?: ""
+
+    fun soundEnabled(ctx: Context) = prefs(ctx).getBoolean("soundOn", true)
+
+    fun loopSound(ctx: Context) = prefs(ctx).getBoolean("loopSound", false)
+
+    /** Guards the one-minute warning so it only buzzes once per session. */
+    fun hasWarned(ctx: Context) = prefs(ctx).getBoolean("warned", false)
+
+    fun markWarned(ctx: Context) {
+        prefs(ctx).edit().putBoolean("warned", true).apply()
+    }
+
     // ---- transitions --------------------------------------------------------
 
     fun begin(
@@ -65,7 +79,10 @@ object Session {
         title: String,
         subtitle: String,
         dark: Boolean,
-        vibrate: Boolean
+        vibrate: Boolean,
+        soundUri: String,
+        soundEnabled: Boolean,
+        loopSound: Boolean
     ) {
         prefs(ctx).edit()
             .putBoolean("running", true)
@@ -81,17 +98,29 @@ object Session {
             .putString("subtitle", subtitle)
             .putBoolean("dark", dark)
             .putBoolean("vibrate", vibrate)
+            .putString("soundUri", soundUri)
+            .putBoolean("soundOn", soundEnabled)
+            .putBoolean("loopSound", loopSound)
+            .putBoolean("warned", false)
             .apply()
     }
 
     fun markExpired(ctx: Context) {
         val lockout = lockoutMs(ctx)
+        val until = when {
+            lockout < 0L -> Long.MAX_VALUE                       // blocked until stopped
+            lockout > 0L -> System.currentTimeMillis() + lockout // timed window
+            else -> 0L                                           // no block at all
+        }
         prefs(ctx).edit()
             .putBoolean("running", false)
             .putBoolean("expired", true)
-            .putLong("lockoutUntil", if (lockout > 0) System.currentTimeMillis() + lockout else 0L)
+            .putLong("lockoutUntil", until)
             .apply()
     }
+
+    /** True when the block has no end time and only the app can lift it. */
+    fun isIndefinite(ctx: Context) = lockoutUntil(ctx) == Long.MAX_VALUE
 
     /** Session ended early by the user — no lockout, no block screen. */
     fun clear(ctx: Context) {

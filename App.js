@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, View, Alert, StatusBar, ActivityIndicator, Text } from 'react-native';
+import { AppState, View, Alert, StatusBar, Animated, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
@@ -16,10 +16,13 @@ import { DEFAULT_SETTINGS } from './src/presets';
 import {
   canHardBlock,
   hasOverlayPermission,
+  hasUsagePermission,
   requestOverlayPermission,
 } from './src/blocker';
 import * as Session from './src/session';
 
+import { ScreenTransition, EASE } from './src/components/motion';
+import { Wordmark } from './src/icons';
 import HomeScreen from './src/screens/HomeScreen';
 import RunningScreen from './src/screens/RunningScreen';
 import TimeUpScreen from './src/screens/TimeUpScreen';
@@ -28,6 +31,8 @@ import AppsScreen from './src/screens/AppsScreen';
 import AppFormScreen from './src/screens/AppFormScreen';
 import PickerScreen from './src/screens/PickerScreen';
 import PermissionsScreen from './src/screens/PermissionsScreen';
+import MessagesScreen from './src/screens/MessagesScreen';
+import SoundsScreen from './src/screens/SoundsScreen';
 
 const EMPTY_STATE = {
   running: false,
@@ -35,9 +40,11 @@ const EMPTY_STATE = {
   durationMs: 0,
   expired: false,
   inLockout: false,
+  blockedForever: false,
   lockoutRemainingMs: 0,
   appId: '',
   label: '',
+  message: '',
   hard: canHardBlock,
 };
 
@@ -60,6 +67,10 @@ export default function App() {
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
+  // Cold-start entrance: the wordmark holds, then the app fades up behind it.
+  const launch = useRef(new Animated.Value(0)).current;
+  const splash = useRef(new Animated.Value(1)).current;
+
   // ---- boot ---------------------------------------------------------------
 
   useEffect(() => {
@@ -71,10 +82,27 @@ export default function App() {
       await Session.initNotifications();
       await Session.hydrate();
       setState(Session.getState());
-      setPermissionsOk(!canHardBlock || hasOverlayPermission());
+      setPermissionsOk(!canHardBlock || (hasOverlayPermission() && hasUsagePermission()));
       setReady(true);
+
+      Animated.parallel([
+        Animated.timing(splash, {
+          toValue: 0,
+          duration: 420,
+          delay: 260,
+          easing: EASE,
+          useNativeDriver: true,
+        }),
+        Animated.timing(launch, {
+          toValue: 1,
+          duration: 520,
+          delay: 200,
+          easing: EASE,
+          useNativeDriver: true,
+        }),
+      ]).start();
     })();
-  }, []);
+  }, [launch, splash]);
 
   // ---- keep session state fresh -------------------------------------------
 
@@ -94,7 +122,7 @@ export default function App() {
       if (next !== 'active') return;
       Session.hydrate();
       refresh();
-      setPermissionsOk(!canHardBlock || hasOverlayPermission());
+      setPermissionsOk(!canHardBlock || (hasOverlayPermission() && hasUsagePermission()));
     });
     return () => sub.remove();
   }, [refresh]);
@@ -173,6 +201,28 @@ export default function App() {
     refresh();
   };
 
+  /** Tapping a blocked app from the grid: explain, then offer to lift it. */
+  const handleUnblock = (app) => {
+    const name = app?.name || state.label || 'That app';
+    Alert.alert(
+      `${name} is blocked`,
+      state.blockedForever
+        ? `It stays blocked every time you open it, until you lift it here.`
+        : `It unlocks on its own shortly.`,
+      [
+        { text: 'Leave it blocked', style: 'cancel' },
+        {
+          text: 'Unblock',
+          style: 'destructive',
+          onPress: async () => {
+            await Session.endLockout();
+            refresh();
+          },
+        },
+      ]
+    );
+  };
+
   const handleBackToApp = async () => {
     const app = apps.find((a) => a.id === state.appId);
     if (app) await Session.relaunchTarget(app);
@@ -197,25 +247,6 @@ export default function App() {
 
   // ---- render -------------------------------------------------------------
 
-  if (!ready) {
-    return (
-      <SafeAreaProvider>
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: C.bg,
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 16,
-          }}
-        >
-          <ActivityIndicator color={C.ink} />
-          <Text style={[T.kicker, { letterSpacing: 3 }]}>CUTOFF</Text>
-        </View>
-      </SafeAreaProvider>
-    );
-  }
-
   const activeApp = apps.find((a) => a.id === state.appId) || null;
 
   const body = () => {
@@ -225,6 +256,7 @@ export default function App() {
         <TimeUpScreen
           state={state}
           settings={settings}
+          message={state.message}
           onDone={handleAcknowledge}
           onEndLockout={handleEndLockout}
         />
@@ -238,6 +270,7 @@ export default function App() {
           state={state}
           app={activeApp}
           settings={settings}
+          message={state.message}
           onStop={handleStop}
           onBackToApp={handleBackToApp}
           onOpenSettings={() => push('settings')}
@@ -254,6 +287,8 @@ export default function App() {
             history={history}
             onClearHistory={handleClearHistory}
             onManageApps={() => push('apps')}
+            onManageMessages={() => push('messages')}
+            onOpenSounds={() => push('sounds')}
             onOpenPermissions={() => push('permissions')}
             onBack={pop}
           />
@@ -294,11 +329,25 @@ export default function App() {
           />
         );
 
+      case 'messages':
+        return (
+          <MessagesScreen settings={settings} onChange={updateSettings} onBack={pop} />
+        );
+
+      case 'sounds':
+        return (
+          <SoundsScreen settings={settings} onChange={updateSettings} onBack={pop} />
+        );
+
       case 'permissions':
         return (
           <PermissionsScreen
             onBack={pop}
-            onRefresh={() => setPermissionsOk(!canHardBlock || hasOverlayPermission())}
+            onRefresh={() =>
+              setPermissionsOk(
+                !canHardBlock || (hasOverlayPermission() && hasUsagePermission())
+              )
+            }
           />
         );
 
@@ -308,7 +357,11 @@ export default function App() {
           <HomeScreen
             apps={apps}
             settings={settings}
+            history={history}
             permissionsOk={permissionsOk}
+            blockedAppId={state.inLockout ? state.appId : ''}
+            blockedForever={state.blockedForever}
+            onUnblock={handleUnblock}
             onStart={handleStart}
             onEditApp={(app) => push('appform', { app })}
             onAddApp={() => push('picker')}
@@ -319,6 +372,9 @@ export default function App() {
     }
   };
 
+  // The block screen and a live session shouldn't slide — they're states, not pages.
+  const isOverlayState = state.expired || (state.running && top.name === 'home');
+
   return (
     <SafeAreaProvider>
       <StatusBar
@@ -326,7 +382,51 @@ export default function App() {
         backgroundColor="transparent"
         translucent
       />
-      <View style={{ flex: 1, backgroundColor: C.bg }}>{body()}</View>
+
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <Animated.View
+          style={{
+            flex: 1,
+            opacity: launch,
+            transform: [
+              { scale: launch.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) },
+            ],
+          }}
+        >
+          {ready ? (
+            isOverlayState ? (
+              body()
+            ) : (
+              <ScreenTransition routeKey={top.name} depth={stack.length}>
+                {body()}
+              </ScreenTransition>
+            )
+          ) : null}
+        </Animated.View>
+
+        {/* Cold-start splash, faded out once the app is ready. */}
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            backgroundColor: C.bg,
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 18,
+            opacity: splash,
+            transform: [
+              { scale: splash.interpolate({ inputRange: [0, 1], outputRange: [1.06, 1] }) },
+            ],
+          }}
+        >
+          <Wordmark size={54} />
+          <Text style={[T.kicker, { letterSpacing: 5, fontSize: 11 }]}>CUTOFF</Text>
+        </Animated.View>
+      </View>
     </SafeAreaProvider>
   );
 }

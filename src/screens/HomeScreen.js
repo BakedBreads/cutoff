@@ -5,15 +5,21 @@ import { C, T, SHADOW } from '../theme';
 import { human } from '../format';
 import { DURATION_CHIPS } from '../presets';
 import { canHardBlock } from '../blocker';
-import { Wordmark, IconGear, IconPlus, IconAlert, IconPlay, IconShield } from '../icons';
-import { Hard, HardPress, Button, Chip, Kicker, IconButton, Body } from '../components/ui';
+import { Wordmark, IconGear, IconPlus, IconAlert, IconPlay, IconShield, IconLock } from '../icons';
+import { Hard, HardPress, Button, Chip, Kicker, IconButton, Body, Stepper } from '../components/ui';
+import { Enter, layoutPulse } from '../components/motion';
 import AppTile from '../components/AppTile';
+import StatsStrip from '../components/Stats';
 import Sheet from '../components/Sheet';
 
 export default function HomeScreen({
   apps,
   settings,
+  history,
   permissionsOk,
+  blockedAppId,
+  blockedForever,
+  onUnblock,
   onStart,
   onEditApp,
   onAddApp,
@@ -36,6 +42,11 @@ export default function HomeScreen({
   };
 
   const handleTilePress = (app) => {
+    if (app.id === blockedAppId) {
+      setSheetApp(null);
+      onUnblock(app);
+      return;
+    }
     if (canHardBlock && !permissionsOk) {
       onOpenPermissions();
       return;
@@ -88,10 +99,11 @@ export default function HomeScreen({
             <IconAlert size={22} color={C.paper} />
             <View style={{ flex: 1 }}>
               <Text style={[T.label, { color: C.paper, fontSize: 12, letterSpacing: 1.2 }]}>
-                ONE PERMISSION MISSING
+                PERMISSIONS NEEDED
               </Text>
               <Text style={[T.body, { color: C.dimmer, fontSize: 11, marginTop: 4 }]}>
-                Without it the block screen can't appear over TikTok. Tap to fix.
+                Without them the block screen can't cover other apps, or come back when you
+                reopen one. Tap to fix.
               </Text>
             </View>
           </HardPress>
@@ -116,21 +128,54 @@ export default function HomeScreen({
           </Hard>
         ) : null}
 
+        {blockedAppId ? (
+          <Enter>
+            <HardPress
+              onPress={() => onUnblock(apps.find((a) => a.id === blockedAppId))}
+              fill={C.ink}
+              style={{ marginBottom: 22 }}
+              inner={{ padding: 16, flexDirection: 'row', gap: 13, alignItems: 'center' }}
+            >
+              <IconLock size={21} color={C.paper} />
+              <View style={{ flex: 1 }}>
+                <Text style={[T.label, { color: C.paper, fontSize: 12, letterSpacing: 1.2 }]}>
+                  {String(
+                    apps.find((a) => a.id === blockedAppId)?.name || 'AN APP'
+                  ).toUpperCase()}{' '}
+                  IS BLOCKED
+                </Text>
+                <Text style={[T.body, { color: C.dimmer, fontSize: 11, marginTop: 4 }]}>
+                  {blockedForever
+                    ? 'It stays blocked every time you open it. Tap to lift it.'
+                    : 'Tap to see how much longer.'}
+                </Text>
+              </View>
+            </HardPress>
+          </Enter>
+        ) : null}
+
+        <StatsStrip history={history} />
+
         <Kicker style={{ marginBottom: 16 }}>Your apps</Kicker>
 
         {/* ── grid ─────────────────────────────────────────────── */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-          {apps.map((app) => (
-            <AppTile
-              key={app.id}
-              app={app}
-              size={tile}
-              onPress={() => handleTilePress(app)}
-              onLongPress={() => openSheet(app)}
-            />
+          {apps.map((app, i) => (
+            <Enter key={app.id} index={i}>
+              <AppTile
+                app={app}
+                size={tile}
+                blocked={app.id === blockedAppId}
+                onPress={() => handleTilePress(app)}
+                onLongPress={() =>
+                  app.id === blockedAppId ? onUnblock(app) : openSheet(app)
+                }
+              />
+            </Enter>
           ))}
 
           {/* add tile */}
+          <Enter index={apps.length}>
           <HardPress
             onPress={onAddApp}
             fill={C.wash}
@@ -157,6 +202,7 @@ export default function HomeScreen({
             </View>
             <Text style={[T.kicker, { color: C.ink, letterSpacing: 1.3 }]}>ADD APP</Text>
           </HardPress>
+          </Enter>
         </View>
 
         {apps.length > 0 ? (
@@ -177,14 +223,22 @@ export default function HomeScreen({
         onClose={() => setSheetApp(null)}
         title={sheetApp ? `Start ${sheetApp.name}` : ''}
       >
-        <Text style={[T.kicker, { marginBottom: 12 }]}>HOW LONG?</Text>
+        <Text style={[T.kicker, { marginBottom: 14 }]}>HOW LONG?</Text>
+
+        <View style={{ marginBottom: 18 }}>
+          <Stepper value={sheetMinutes} onChange={setSheetMinutes} min={1} max={600} step={5} />
+        </View>
+
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 22 }}>
           {DURATION_CHIPS.map((m) => (
             <Chip
               key={m}
               label={human(m)}
               active={sheetMinutes === m}
-              onPress={() => setSheetMinutes(m)}
+              onPress={() => {
+                layoutPulse();
+                setSheetMinutes(m);
+              }}
             />
           ))}
         </View>
@@ -192,11 +246,16 @@ export default function HomeScreen({
         <Hard fill={C.wash} inner={{ padding: 15 }} style={{ marginBottom: 20 }}>
           <Text style={[T.kicker, { marginBottom: 7 }]}>WHEN TIME RUNS OUT</Text>
           <Text style={[T.label, { fontSize: 16, letterSpacing: 0 }]}>
-            {settings.message}
+            {(settings.messages || [])[0] || "TIME'S UP"}
+            {(settings.messages || []).length > 1
+              ? `  (+${settings.messages.length - 1} more)`
+              : ''}
           </Text>
-          {settings.lockoutMinutes > 0 && canHardBlock ? (
+          {canHardBlock && Number(settings.lockoutMinutes) !== 0 ? (
             <Text style={[T.body, { fontSize: 11, marginTop: 8 }]}>
-              …then {sheetApp?.name} stays locked for {human(settings.lockoutMinutes)}.
+              {Number(settings.lockoutMinutes) < 0
+                ? `…then ${sheetApp?.name} stays blocked every time you open it, until you stop it here.`
+                : `…then ${sheetApp?.name} stays locked for ${human(settings.lockoutMinutes)}.`}
             </Text>
           ) : null}
         </Hard>
