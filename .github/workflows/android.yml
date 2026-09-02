@@ -1,0 +1,78 @@
+name: Build Android APK
+
+# Runs on every push to main, and on demand from the Actions tab.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  apk:
+    name: Assemble release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Generates ./android from app.json + the local Expo module.
+      # --no-install because npm ci already did that.
+      - name: Generate the native project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      # The Expo/RN template signs release builds with the bundled debug
+      # keystore, so this comes out installable with no secrets to configure.
+      # Signing stays consistent between runs, which means updates install
+      # over the top instead of forcing an uninstall.
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Find the APK
+        id: apk
+        run: |
+          path=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+          echo "Built: $path ($(du -h "$path" | cut -f1))"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: cutoff-apk
+          path: ${{ steps.apk.outputs.path }}
+          if-no-files-found: error
+          retention-days: 90
+
+      # Surfaces gradle's own report when something fails, so the log is useful.
+      - name: Upload build reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: |
+            android/app/build/reports/
+            android/build/reports/
+          if-no-files-found: ignore
+          retention-days: 7
