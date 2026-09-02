@@ -73,5 +73,26 @@ export const dismissOverlay = () => safe((n) => n.dismissOverlay(), null);
 export const getNativeState = () =>
   safe((n) => n.getState(), null);
 
-export const previewBlockScreen = (title, subtitle, dark) =>
-  safe((n) => n.previewBlockScreen(title, subtitle, !!dark), false);
+export const previewBlockScreen = (title, subtitle, dark, soundUri, soundEnabled) =>
+  safe(
+    (n) => n.previewBlockScreen(title, subtitle, !!dark, soundUri || '', !!soundEnabled),
+    false
+  );
+
+// ---- sounds ---------------------------------------------------------------
+
+export const listSounds = async () => {
+  if (!Native) return [];
+  try {
+    return await Native.listSounds();
+  } catch (e) {
+    return [];
+  }
+};
+
+export const defaultSoundUri = () => safe((n) => n.defaultSoundUri(), '');
+export const previewSound = (uri) => safe((n) => n.previewSound(uri || ''), null);
+export const stopSound = () => safe((n) => n.stopSound(), null);
+
+/** True when alarm volume is zero, so settings can warn the tone won't be heard. */
+export const isSilent = () => safe((n) => n.isSilent(), false);

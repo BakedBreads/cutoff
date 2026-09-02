@@ -29,10 +29,14 @@ export const IconClock = (p) => (
   </Base>
 );
 
+/**
+ * A real toothed gear: an octagonal body with eight square teeth and a bored
+ * centre. Drawn as one closed path so the outline stays a single stroke.
+ */
 export const IconGear = (p) => (
   <Base {...p}>
-    <Circle cx="12" cy="12" r="3.2" />
-    <Path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" />
+    <Path d="M10.3 2.2h3.4l.45 2.24 1.72.71 1.87-1.28 2.4 2.4-1.28 1.87.71 1.72 2.24.45v3.4l-2.24.45-.71 1.72 1.28 1.87-2.4 2.4-1.87-1.28-1.72.71-.45 2.24h-3.4l-.45-2.24-1.72-.71-1.87 1.28-2.4-2.4 1.28-1.87-.71-1.72L2.2 13.7v-3.4l2.24-.45.71-1.72L3.87 6.26l2.4-2.4 1.87 1.28 1.72-.71z" />
+    <Circle cx="12" cy="12" r="3.1" />
   </Base>
 );
 
@@ -131,6 +135,47 @@ export const IconShield = (p) => (
   <Base {...p}>
     <Path d="M12 2.5l8 3v6c0 5-3.5 8.7-8 10-4.5-1.3-8-5-8-10v-6l8-3z" />
     <Path d="M8.5 12l2.5 2.5 4.5-5" />
+  </Base>
+);
+
+export const IconSound = (p) => (
+  <Base {...p}>
+    <Path d="M4 9h3.5L12 4.5v15L7.5 15H4V9z" />
+    <Path d="M15.5 9.2a4 4 0 010 5.6M18.3 6.4a8 8 0 010 11.2" />
+  </Base>
+);
+
+export const IconMute = (p) => (
+  <Base {...p}>
+    <Path d="M4 9h3.5L12 4.5v15L7.5 15H4V9z" />
+    <Path d="M16 9.5l5 5M21 9.5l-5 5" />
+  </Base>
+);
+
+export const IconChart = (p) => (
+  <Base {...p}>
+    <Path d="M3 21h18" />
+    <Rect x="4" y="13" width="3.6" height="6" />
+    <Rect x="10.2" y="8" width="3.6" height="11" />
+    <Rect x="16.4" y="4" width="3.6" height="15" />
+  </Base>
+);
+
+export const IconFlame = (p) => (
+  <Base {...p}>
+    <Path d="M12 2.5s5.5 4.2 5.5 9.5a5.5 5.5 0 11-11 0c0-2.2 1.3-3.9 1.3-3.9s.6 1.6 1.9 2.1c0-3.4 2.3-5.5 2.3-7.7z" />
+  </Base>
+);
+
+export const IconMinus = (p) => (
+  <Base {...p}>
+    <Path d="M4 12h16" />
+  </Base>
+);
+
+export const IconRefresh = (p) => (
+  <Base {...p}>
+    <Path d="M20 12a8 8 0 11-2.4-5.7M20 3.5V9h-5.5" />
   </Base>
 );
 

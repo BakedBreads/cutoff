@@ -116,12 +116,15 @@ export const DEFAULT_APPS = [
 ];
 
 export const DEFAULT_SETTINGS = {
-  /** The big line on the block screen. */
-  message: 'TIME TO STUDY',
+  /** Big lines for the block screen. One is picked at random per session. */
+  messages: ['TIME TO STUDY'],
   /** The smaller line under it. */
   submessage: 'Put the phone down. You said you would.',
-  /** Minutes the app stays re-blocked after the timer ends. 0 = off. */
-  lockoutMinutes: 10,
+  /**
+   * How long the app stays blocked after the timer ends.
+   * -1 = until you stop it in Cutoff (the default), 0 = off, or a minute count.
+   */
+  lockoutMinutes: -1,
   /** Default length for newly added apps. */
   defaultMinutes: 20,
   /** Block screen palette: false = paper (white), true = blackout. */
@@ -129,6 +132,27 @@ export const DEFAULT_SETTINGS = {
   vibrate: true,
   /** Ask before starting, instead of launching immediately on tap. */
   confirmBeforeStart: false,
+  /** Play a tone when time runs out. */
+  soundEnabled: true,
+  /** Chosen tone; empty means the system default alarm. */
+  soundUri: '',
+  soundName: 'Default alarm',
+  /** Keep the tone going until the block screen is dismissed. */
+  loopSound: false,
+  /** Make ending a session early require a deliberate press-and-hold. */
+  holdToEnd: true,
 };
 
 export const DURATION_CHIPS = [5, 10, 15, 20, 30, 45, 60, 90];
+
+/** Ready-made lines, offered when adding a new message. */
+export const MESSAGE_IDEAS = [
+  'TIME TO STUDY',
+  'THAT’S ENOUGH',
+  'PUT IT DOWN',
+  'GO DO THE THING',
+  'YOU SAID 20 MINUTES',
+  'STOP SCROLLING',
+  'BACK TO WORK',
+  'FUTURE YOU IS WATCHING',
+];

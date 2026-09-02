@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Linking, Platform } from 'react-native';
+import { View, Text, Platform } from 'react-native';
 import { C, T } from '../theme';
 import {
   canHardBlock,
@@ -9,8 +9,8 @@ import {
   requestUsagePermission,
   openNotificationSettings,
 } from '../blocker';
-import { Screen, Hard, HardPress, Button, Kicker, Body } from '../components/ui';
-import { IconCheck, IconAlert, IconChevron, IconShield } from '../icons';
+import { Screen, Hard, Button, Kicker, Body } from '../components/ui';
+import { IconCheck, IconAlert, IconShield } from '../icons';
 
 function PermRow({ title, why, granted, required, onFix, last }) {
   return (
@@ -70,7 +70,7 @@ export default function PermissionsScreen({ onBack, onRefresh }) {
       <Kicker style={{ marginBottom: 12 }}>Two switches</Kicker>
       <Body style={{ marginBottom: 20 }}>
         Android hands these out one at a time, in its own settings app. Tap through, flip the
-        switch for Cutoff, then come back here.
+        switch for Cutoff, then come back here. You need both for the block to hold.
       </Body>
 
       <Hard inner={{ paddingHorizontal: 16 }}>
@@ -83,9 +83,9 @@ export default function PermissionsScreen({ onBack, onRefresh }) {
         />
         <PermRow
           title="Usage access"
-          why="Only needed for the lockout window. It lets Cutoff notice when you reopen the app you were just cut off from, and put the screen straight back up."
+          why="This is what keeps an app blocked. It lets Cutoff notice the moment you reopen the app you were cut off from, and put the screen straight back up. Without it the timer still fires once, but reopening the app gets you back in."
           granted={usage}
-          required={false}
+          required
           onFix={requestUsagePermission}
           last
         />

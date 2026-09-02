@@ -32,9 +32,11 @@ const EMPTY = {
   durationMs: 0,
   expired: false,
   inLockout: false,
+  blockedForever: false,
   lockoutRemainingMs: 0,
   appId: '',
   label: '',
+  message: '',
   hard: canHardBlock,
 };
 
@@ -81,7 +83,7 @@ const secondsTrigger = (seconds) => {
     : { seconds: s, repeats: false };
 };
 
-const scheduleAlarms = async (settings, label, durationMs) => {
+const scheduleAlarms = async (settings, label, durationMs, message) => {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
 
@@ -100,9 +102,9 @@ const scheduleAlarms = async (settings, label, durationMs) => {
 
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: settings.message || "TIME'S UP",
+        title: message || "TIME'S UP",
         body: settings.submessage || `Your ${label} time is over.`,
-        sound: 'default',
+        sound: settings.soundEnabled === false ? false : 'default',
         priority: Notifications.AndroidNotificationPriority.MAX,
         ...(Platform.OS === 'android' ? { channelId: 'cutoff-alarm' } : {}),
       },
@@ -118,6 +120,13 @@ const cancelAlarms = async () => {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
   } catch (e) {}
+};
+
+/** One of the configured lines, chosen at random for this session. */
+export const pickMessage = (settings) => {
+  const list = (settings.messages || []).filter((m) => String(m || '').trim());
+  if (list.length === 0) return "TIME'S UP";
+  return list[Math.floor(Math.random() * list.length)];
 };
 
 // ---- launching -------------------------------------------------------------
@@ -195,9 +204,11 @@ export const getState = () => {
       durationMs: Number(s.durationMs) || 0,
       expired: !!s.expired,
       inLockout: !!s.inLockout,
+      blockedForever: !!s.blockedForever,
       lockoutRemainingMs: Number(s.lockoutRemainingMs) || 0,
       appId: s.appId || '',
       label: s.label || '',
+      message: s.message || '',
       overlayShowing: !!s.overlayShowing,
       hard: true,
     };
@@ -213,10 +224,13 @@ export const getState = () => {
     remainingMs: remaining,
     durationMs: fallback.durationMs || 0,
     expired,
+    // iOS can't watch what you open, so an endless block can't be enforced there.
     inLockout: lockoutRemaining > 0,
+    blockedForever: false,
     lockoutRemainingMs: lockoutRemaining,
     appId: fallback.appId || '',
     label: fallback.label || '',
+    message: fallback.message || '',
     overlayShowing: false,
     hard: false,
   };
@@ -225,7 +239,9 @@ export const getState = () => {
 export const start = async (app, settings) => {
   const minutes = Number(app.minutes) || settings.defaultMinutes || 20;
   const durationMs = minutes * 60_000;
-  const lockoutMs = Math.max(0, Number(settings.lockoutMinutes) || 0) * 60_000;
+  const lockoutSetting = Number(settings.lockoutMinutes);
+  const lockoutMs =
+    lockoutSetting < 0 ? -1 : Math.max(0, lockoutSetting || 0) * 60_000;
 
   if (canHardBlock) {
     const pkg = resolveAndroidPackage(app);
@@ -237,10 +253,13 @@ export const start = async (app, settings) => {
       label: app.name,
       durationMs,
       lockoutMs,
-      title: settings.message || "TIME'S UP",
+      title: pickMessage(settings),
       subtitle: settings.submessage || '',
       dark: !!settings.darkBlockScreen,
       vibrate: settings.vibrate !== false,
+      soundUri: settings.soundUri || '',
+      soundEnabled: settings.soundEnabled !== false,
+      loopSound: !!settings.loopSound,
       launch: true,
     });
     emit();
@@ -251,16 +270,18 @@ export const start = async (app, settings) => {
   const opened = await openViaScheme(app);
   if (!opened) return { ok: false, reason: 'not-installed' };
 
+  const chosen = pickMessage(settings);
   fallback = {
     appId: app.id,
     label: app.name,
+    message: chosen,
     durationMs,
     endsAt: Date.now() + durationMs,
     lockoutUntil: lockoutMs > 0 ? Date.now() + durationMs + lockoutMs : 0,
     expired: false,
   };
   await saveFallbackSession(fallback);
-  await scheduleAlarms(settings, app.name, durationMs);
+  await scheduleAlarms(settings, app.name, durationMs, chosen);
   emit();
   return { ok: true };
 };

@@ -5,12 +5,16 @@ import { C, T, MONO } from '../theme';
 import { clock, humanMs } from '../format';
 import { canHardBlock } from '../blocker';
 import { Hard, Button, Kicker, Body, IconButton } from '../components/ui';
+import { Pulse, ProgressBar, HoldButton, Enter } from '../components/motion';
 import { IconStop, IconBack, IconLock, IconGear } from '../icons';
+
+const NEARLY_OVER = 60_000;
 
 export default function RunningScreen({
   state,
   app,
   settings,
+  message,
   onStop,
   onBackToApp,
   onOpenSettings,
@@ -20,6 +24,8 @@ export default function RunningScreen({
     state.durationMs > 0
       ? Math.min(1, Math.max(0, 1 - state.remainingMs / state.durationMs))
       : 0;
+  const nearlyOver = state.remainingMs > 0 && state.remainingMs <= NEARLY_OVER;
+  const label = String(state.label || app?.name || 'APP').toUpperCase();
 
   return (
     <View
@@ -37,78 +43,85 @@ export default function RunningScreen({
       </View>
 
       <View style={{ flex: 1, justifyContent: 'center' }}>
-        <Text style={[T.kicker, { fontSize: 12, letterSpacing: 2, marginBottom: 6 }]}>
-          {String(state.label || app?.name || 'APP').toUpperCase()}
-        </Text>
+        <Enter>
+          <Text style={[T.kicker, { fontSize: 12, letterSpacing: 2, marginBottom: 6 }]}>
+            {label}
+          </Text>
+        </Enter>
 
-        <Text
-          style={{
-            fontFamily: MONO,
-            fontSize: state.remainingMs >= 3600_000 ? 58 : 76,
-            fontWeight: '700',
-            letterSpacing: -4,
-            color: C.ink,
-            marginBottom: 4,
-          }}
-        >
-          {clock(state.remainingMs)}
-        </Text>
+        {/* The clock breathes once it's down to the last minute. */}
+        <Pulse active={nearlyOver} style={{ alignSelf: 'flex-start' }}>
+          <Text
+            style={{
+              fontFamily: MONO,
+              fontSize: state.remainingMs >= 3600_000 ? 58 : 76,
+              fontWeight: '700',
+              letterSpacing: -4,
+              color: nearlyOver ? C.danger : C.ink,
+              marginBottom: 4,
+            }}
+          >
+            {clock(state.remainingMs)}
+          </Text>
+        </Pulse>
+
         <Text style={[T.body, { fontSize: 12, marginBottom: 26 }]}>
-          of {humanMs(state.durationMs)} · left on the clock
+          {nearlyOver
+            ? 'Last minute — wrap it up.'
+            : `of ${humanMs(state.durationMs)} · left on the clock`}
         </Text>
 
-        {/* segmented progress */}
-        <View
-          style={{
-            height: 22,
-            borderWidth: 2,
-            borderColor: C.ink,
-            backgroundColor: C.paper,
-            padding: 3,
-            marginBottom: 26,
-          }}
-        >
-          <View style={{ flex: 1, flexDirection: 'row' }}>
-            <View style={{ flex: Math.max(pct, 0.0001), backgroundColor: C.ink }} />
-            <View style={{ flex: Math.max(1 - pct, 0.0001) }} />
-          </View>
+        <View style={{ marginBottom: 26 }}>
+          <ProgressBar value={pct} danger={nearlyOver} />
         </View>
 
-        <Hard fill={C.wash} inner={{ padding: 16 }}>
-          <Text style={[T.kicker, { marginBottom: 8 }]}>AT ZERO</Text>
-          <Text style={[T.label, { fontSize: 17, letterSpacing: 0 }]}>{settings.message}</Text>
-          {settings.submessage ? (
-            <Body style={{ fontSize: 12, marginTop: 7 }}>{settings.submessage}</Body>
-          ) : null}
-          {canHardBlock ? (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-                marginTop: 13,
-                paddingTop: 13,
-                borderTopWidth: 1,
-                borderTopColor: C.rule,
-              }}
-            >
-              <IconLock size={14} color={C.dim} />
-              <Text style={[T.kicker, { letterSpacing: 0.9 }]}>
-                THIS SCREEN WILL COVER {String(state.label || 'THE APP').toUpperCase()}
-              </Text>
-            </View>
-          ) : null}
-        </Hard>
+        <Enter delay={120}>
+          <Hard fill={C.wash} inner={{ padding: 16 }}>
+            <Text style={[T.kicker, { marginBottom: 8 }]}>AT ZERO</Text>
+            <Text style={[T.label, { fontSize: 17, letterSpacing: 0 }]}>
+              {message || (settings.messages || [])[0] || "TIME'S UP"}
+            </Text>
+            {settings.submessage ? (
+              <Body style={{ fontSize: 12, marginTop: 7 }}>{settings.submessage}</Body>
+            ) : null}
+            {canHardBlock ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginTop: 13,
+                  paddingTop: 13,
+                  borderTopWidth: 1,
+                  borderTopColor: C.rule,
+                }}
+              >
+                <IconLock size={14} color={C.dim} />
+                <Text style={[T.kicker, { letterSpacing: 0.9, flex: 1 }]}>
+                  {Number(settings.lockoutMinutes) < 0
+                    ? `${label} STAYS BLOCKED UNTIL YOU STOP IT`
+                    : `THIS SCREEN WILL COVER ${label}`}
+                </Text>
+              </View>
+            ) : null}
+          </Hard>
+        </Enter>
       </View>
 
       <Button
-        label={`BACK TO ${String(state.label || app?.name || 'APP').toUpperCase()}`}
+        label={`BACK TO ${label}`}
         icon={<IconBack />}
         variant="outline"
         onPress={onBackToApp}
       />
       <View style={{ height: 10 }} />
-      <Button label="END SESSION NOW" icon={<IconStop />} onPress={onStop} />
+
+      {/* Bailing out early takes a deliberate hold, not a stray tap. */}
+      {settings.holdToEnd !== false ? (
+        <HoldButton label="HOLD TO END EARLY" holdLabel="KEEP HOLDING…" onComplete={onStop} />
+      ) : (
+        <Button label="END SESSION NOW" icon={<IconStop />} onPress={onStop} />
+      )}
     </View>
   );
 }

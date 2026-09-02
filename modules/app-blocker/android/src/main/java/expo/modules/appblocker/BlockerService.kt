@@ -12,6 +12,9 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 
@@ -24,6 +27,7 @@ class BlockerService : Service() {
     companion object {
         const val ACTION_START = "cutoff.START"
         const val ACTION_STOP = "cutoff.STOP"
+        const val ACTION_OPEN_TARGET = "cutoff.OPEN_TARGET"
 
         private const val CHANNEL_ID = "cutoff.session"
         private const val NOTIF_ID = 4711
@@ -53,7 +57,9 @@ class BlockerService : Service() {
 
     private val tick = object : Runnable {
         override fun run() {
-            if (step()) handler.postDelayed(this, 1000L)
+            // Ticks every second while counting down; eases off while standing guard.
+            val delay = if (Session.isRunning(this@BlockerService)) 1000L else 1500L
+            if (step()) handler.postDelayed(this, delay)
         }
     }
 
@@ -67,6 +73,17 @@ class BlockerService : Service() {
                 Overlay.dismiss(this)
                 shutdown()
                 return START_NOT_STICKY
+            }
+            ACTION_OPEN_TARGET -> {
+                // "Back to <app>" from the notification.
+                val pkg = Session.blockedPackage(this)
+                try {
+                    packageManager.getLaunchIntentForPackage(pkg)
+                        ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        ?.let { startActivity(it) }
+                } catch (_: Exception) {
+                }
+                return START_STICKY
             }
             else -> {
                 createChannel()
@@ -95,6 +112,7 @@ class BlockerService : Service() {
             if (remaining <= 0L) {
                 fire()
             } else {
+                if (remaining in 1L..60_000L && !Session.hasWarned(this)) warnOneMinute()
                 updateNotification(remaining)
             }
             return true
@@ -115,6 +133,24 @@ class BlockerService : Service() {
         return false
     }
 
+    /** A short double-buzz at the one-minute mark, so zero isn't a surprise. */
+    private fun warnOneMinute() {
+        Session.markWarned(this)
+        if (!Session.shouldVibrate(this)) return
+        try {
+            val pattern = longArrayOf(0, 90, 80, 90)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                vm.defaultVibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                val v = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                v.vibrate(VibrationEffect.createWaveform(pattern, -1))
+            }
+        } catch (_: Exception) {
+        }
+    }
+
     private fun fire() {
         Session.markExpired(this)
         Overlay.show(
@@ -125,7 +161,10 @@ class BlockerService : Service() {
             spentMs = Session.durationMs(this),
             lockoutMs = Session.lockoutMs(this),
             dark = Session.isDark(this),
-            vibrate = Session.shouldVibrate(this)
+            vibrate = Session.shouldVibrate(this),
+            soundUri = Session.soundUri(this),
+            soundEnabled = Session.soundEnabled(this),
+            loopSound = Session.loopSound(this)
         )
         updateNotification(0L)
     }
@@ -134,8 +173,9 @@ class BlockerService : Service() {
     private fun watchLockout() {
         updateNotification(0L)
         Overlay.updateLockout(
-            "LOCKED FOR ${
-            fmt((Session.lockoutUntil(this) - System.currentTimeMillis()).coerceAtLeast(0L))
+            if (Session.isIndefinite(this)) "BLOCKED UNTIL YOU STOP IT IN CUTOFF"
+            else "LOCKED FOR ${
+                fmt((Session.lockoutUntil(this) - System.currentTimeMillis()).coerceAtLeast(0L))
             }"
         )
         if (Overlay.isShowing) return
@@ -151,10 +191,14 @@ class BlockerService : Service() {
                 subtitle = Session.subtitle(this),
                 appLabel = Session.label(this),
                 spentMs = Session.durationMs(this),
-                lockoutMs = (Session.lockoutUntil(this) - System.currentTimeMillis())
-                    .coerceAtLeast(0L),
+                lockoutMs = if (Session.isIndefinite(this)) -1L
+                            else (Session.lockoutUntil(this) - System.currentTimeMillis())
+                                .coerceAtLeast(0L),
                 dark = Session.isDark(this),
-                vibrate = Session.shouldVibrate(this)
+                vibrate = Session.shouldVibrate(this),
+                soundUri = Session.soundUri(this),
+                soundEnabled = Session.soundEnabled(this),
+                loopSound = false
             )
         }
     }
@@ -212,6 +256,7 @@ class BlockerService : Service() {
         val label = Session.label(this).ifEmpty { "Session" }
         return when {
             Session.isRunning(this) -> "$label · ${fmt(remaining)} left"
+            Session.isIndefinite(this) -> "$label is blocked · open Cutoff to stop"
             Session.inLockout(this) ->
                 "$label locked · ${fmt((Session.lockoutUntil(this) - System.currentTimeMillis()).coerceAtLeast(0L))} left"
             else -> "Time's up"
@@ -231,19 +276,77 @@ class BlockerService : Service() {
             Intent(this, BlockerService::class.java).setAction(ACTION_STOP),
             flags
         )
+        val backPI = PendingIntent.getService(
+            this, 2,
+            Intent(this, BlockerService::class.java).setAction(ACTION_OPEN_TARGET),
+            flags
+        )
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(if (Session.isRunning(this)) "Cutoff running" else "Cutoff")
+        val running = Session.isRunning(this)
+        val label = Session.label(this).ifEmpty { "Session" }
+        val total = Session.durationMs(this)
+        val elapsed = (total - remaining).coerceIn(0L, total)
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(if (running) "$label · ${fmt(remaining)} left" else "Cutoff")
             .setContentText(notifText(remaining))
             .setSmallIcon(applicationInfo.icon)
             .setOngoing(true)
             .setSilent(true)
-            .setShowWhen(false)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .apply { contentPI?.let { setContentIntent(it) } }
-            .addAction(0, "End session", stopPI)
-            .build()
+
+        // Android shows at most three actions, so they're tailored to the state:
+        // mid-session you can bail out or jump back in; once blocked, the only
+        // route out is opening Cutoff itself.
+        if (running) {
+            builder
+                .addAction(0, "End session", stopPI)
+                .addAction(0, "Back to $label", backPI)
+                .apply { contentPI?.let { addAction(0, "Cutoff", it) } }
+        } else if (Session.inLockout(this)) {
+            builder.apply { contentPI?.let { addAction(0, "Open Cutoff to unblock", it) } }
+        } else {
+            builder.addAction(0, "Dismiss", stopPI)
+        }
+
+        if (running) {
+            // A self-updating countdown in the shade — no per-second redraw needed.
+            builder
+                .setUsesChronometer(true)
+                .setChronometerCountDown(true)
+                .setWhen(Session.endsAt(this))
+                .setShowWhen(true)
+                .setProgress(if (total > 0) total.toInt() else 100, elapsed.toInt(), false)
+                .setStyle(
+                    NotificationCompat.BigTextStyle().bigText(
+                        "${fmt(remaining)} left of ${humanMs(total)}.\n" +
+                            "At zero: ${Session.title(this)}"
+                    )
+                )
+        } else {
+            builder.setShowWhen(false)
+            if (Session.inLockout(this)) {
+                builder.setStyle(
+                    NotificationCompat.BigTextStyle().bigText(
+                        "$label is locked. Opening it will bring the block screen back."
+                    )
+                )
+            }
+        }
+
+        return builder.build()
+    }
+
+    private fun humanMs(ms: Long): String {
+        val mins = (ms / 60000L).toInt()
+        return if (mins >= 60) {
+            val h = mins / 60
+            val m = mins % 60
+            if (m > 0) "${h}h ${m}m" else "${h}h"
+        } else "${mins}m"
     }
 
     private fun fmt(ms: Long): String {
