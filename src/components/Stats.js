@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text } from 'react-native';
 import { C, T, MONO } from '../theme';
 import { human } from '../format';
-import { Hard } from './ui';
+import { Hard, HardPress } from './ui';
 import { IconFlame, IconChart } from '../icons';
 
 const DAY = 86_400_000;
@@ -81,11 +81,17 @@ export function WeekChart({ days, height = 54 }) {
 }
 
 /** The strip that sits above the app grid on the home screen. */
-export default function StatsStrip({ history }) {
+export default function StatsStrip({ history, onPress }) {
   const s = useMemo(() => summarise(history), [history]);
+  const Box = onPress ? HardPress : Hard;
 
   return (
-    <Hard fill={C.paper} inner={{ padding: 15 }} style={{ marginBottom: 22 }}>
+    <Box
+      onPress={onPress}
+      fill={C.paper}
+      inner={{ padding: 15 }}
+      style={{ marginBottom: 22 }}
+    >
       <View style={{ flexDirection: 'row', gap: 16 }}>
         <View style={{ flex: 1 }}>
           <Text style={[T.kicker, { marginBottom: 7 }]}>TODAY</Text>
@@ -114,6 +120,12 @@ export default function StatsStrip({ history }) {
           <WeekChart days={s.days} />
         </View>
       </View>
-    </Hard>
+
+      {onPress ? (
+        <Text style={[T.kicker, { marginTop: 12, letterSpacing: 1.3, color: C.dimmer }]}>
+          TAP FOR THE FULL RECORD
+        </Text>
+      ) : null}
+    </Box>
   );
 }

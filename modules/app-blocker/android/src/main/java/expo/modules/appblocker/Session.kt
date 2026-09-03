@@ -21,8 +21,26 @@ object Session {
     /** True while the countdown is ticking. */
     fun isRunning(ctx: Context) = prefs(ctx).getBoolean("running", false)
 
-    /** Epoch millis when the countdown hits zero. */
+    /**
+     * Epoch millis when the countdown hits zero. This moves forward while the
+     * session is paused, so it is not a stable identifier — use startedAt.
+     */
     fun endsAt(ctx: Context) = prefs(ctx).getLong("endsAt", 0L)
+
+    fun setEndsAt(ctx: Context, value: Long) {
+        prefs(ctx).edit().putLong("endsAt", value).apply()
+    }
+
+    /** Fixed for the life of a session, so history can be keyed on it. */
+    fun startedAt(ctx: Context) = prefs(ctx).getLong("startedAt", 0L)
+
+    /** True while the timed app is not the one on screen. */
+    fun isPaused(ctx: Context) = prefs(ctx).getBoolean("paused", false)
+
+    fun setPaused(ctx: Context, value: Boolean) {
+        if (isPaused(ctx) == value) return
+        prefs(ctx).edit().putBoolean("paused", value).apply()
+    }
 
     /** True once the timer fired and hasn't been acknowledged in the app yet. */
     fun isExpired(ctx: Context) = prefs(ctx).getBoolean("expired", false)
@@ -88,6 +106,8 @@ object Session {
             .putBoolean("running", true)
             .putBoolean("expired", false)
             .putLong("endsAt", System.currentTimeMillis() + durationMs)
+            .putLong("startedAt", System.currentTimeMillis())
+            .putBoolean("paused", false)
             .putLong("durationMs", durationMs)
             .putLong("lockoutMs", lockoutMs)
             .putLong("lockoutUntil", 0L)

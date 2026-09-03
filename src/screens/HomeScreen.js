@@ -24,6 +24,7 @@ export default function HomeScreen({
   blockedForever,
   onUnblock,
   onDeleteApp,
+  onOpenStreak,
   onStart,
   onEditApp,
   onAddApp,
@@ -45,6 +46,7 @@ export default function HomeScreen({
     setSheetApp(app);
   };
 
+  // Tap starts straight away; holding is what opens that app's settings.
   const handleTilePress = (app) => {
     if (app.id === blockedAppId) {
       setSheetApp(null);
@@ -57,6 +59,14 @@ export default function HomeScreen({
     }
     if (settings.confirmBeforeStart) openSheet(app);
     else onStart(app, app.durationMs);
+  };
+
+  const handleTileHold = (app) => {
+    if (app.id === blockedAppId) {
+      onUnblock(app);
+      return;
+    }
+    onEditApp(app);
   };
 
   const startFromSheet = () => {
@@ -158,7 +168,7 @@ export default function HomeScreen({
           </Enter>
         ) : null}
 
-        <StatsStrip history={history} />
+        <StatsStrip history={history} onPress={onOpenStreak} />
 
         <Kicker style={{ marginBottom: 16 }}>Your apps</Kicker>
 
@@ -171,9 +181,7 @@ export default function HomeScreen({
                 size={tile}
                 blocked={app.id === blockedAppId}
                 onPress={() => handleTilePress(app)}
-                onLongPress={() =>
-                  app.id === blockedAppId ? onUnblock(app) : openSheet(app)
-                }
+                onLongPress={() => handleTileHold(app)}
               />
             </Enter>
           ))}
@@ -216,7 +224,7 @@ export default function HomeScreen({
               { fontSize: 11, marginTop: 22, color: C.dimmer, textAlign: 'center' },
             ]}
           >
-            Tap to start · hold to change the timer
+            Tap to start · hold to open its settings
           </Text>
         ) : null}
       </ScrollView>

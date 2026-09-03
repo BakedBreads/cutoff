@@ -113,6 +113,26 @@ export const DEFAULT_APPS = [
   },
 ];
 
+/** One-liners for the grid, so a tile isn't just a name and a number. */
+export const APP_NOTES = {
+  tiktok: 'The one that eats whole evenings',
+  instagram: 'Reels are the same trap, different app',
+  youtube: 'Autoplay never asks permission',
+  x: 'Outrage on a timer',
+  reddit: 'One more thread, forever',
+  snapchat: 'Streaks that cost you hours',
+  facebook: 'Somehow still there',
+  whatsapp: 'Fine in bursts, not in hours',
+  telegram: 'Channels multiply',
+  discord: 'A room that never closes',
+  netflix: 'Are you still watching?',
+  spotify: 'Usually harmless',
+  twitch: 'Streams run longer than you meant',
+  pinterest: 'A hole with nice lighting',
+  shopee: 'Browsing is spending',
+  tokopedia: 'Browsing is spending',
+};
+
 /** Where feedback goes. Shown on the about screen. */
 export const CONTACT_EMAIL = 'parkseoyeon2026@gmail.com';
 

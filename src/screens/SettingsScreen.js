@@ -8,11 +8,11 @@ import { Screen, Hard, Chip, Toggle, Row, Kicker, Button, Body } from '../compon
 import DurationInput from '../components/DurationInput';
 import { Enter } from '../components/motion';
 import { WeekChart, summarise } from '../components/Stats';
-import { IconEye, IconChevron, IconTrash, IconChart } from '../icons';
+import { IconEye, IconChevron, IconTrash, IconChart, IconRefresh, IconFlame } from '../icons';
 
 // -1 means "until you stop it in the app", 0 means no block at all.
 const FOREVER = -1;
-const VERSION = '1.6.0';
+const VERSION = '1.7.0';
 
 export default function SettingsScreen({
   settings,
@@ -24,6 +24,8 @@ export default function SettingsScreen({
   onOpenSounds,
   onOpenPermissions,
   onOpenAbout,
+  onOpenStreak,
+  onResetSettings,
   onBack,
 }) {
   const messages = settings.messages || [];
@@ -244,6 +246,29 @@ export default function SettingsScreen({
         />
       </Hard>
 
+      {/* ── reset ────────────────────────────────────────────────── */}
+      <Kicker style={{ marginTop: 34, marginBottom: 12 }}>Start over</Kicker>
+      <Body style={{ marginBottom: 14 }}>
+        Puts every setting on this screen back to how it shipped. Your apps and your session
+        history are left alone.
+      </Body>
+      <Button
+        label="RESET ALL SETTINGS"
+        icon={<IconRefresh />}
+        variant="outline"
+        compact
+        onPress={() =>
+          Alert.alert(
+            'Reset settings?',
+            'Messages, block length, sound and behaviour all go back to their defaults. Apps and history stay.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Reset', style: 'destructive', onPress: onResetSettings },
+            ]
+          )
+        }
+      />
+
       {/* ── history ──────────────────────────────────────────────── */}
       <Kicker style={{ marginTop: 34, marginBottom: 12 }}>Your week</Kicker>
       {history.length === 0 ? (
@@ -261,6 +286,15 @@ export default function SettingsScreen({
               </Text>
             </View>
             <WeekChart days={stats.days} height={64} />
+            <View style={{ marginTop: 14 }}>
+              <Button
+                label="SEE THE FULL RECORD"
+                icon={<IconFlame />}
+                variant="outline"
+                compact
+                onPress={onOpenStreak}
+              />
+            </View>
           </Hard>
 
           <Hard inner={{ paddingHorizontal: 15 }}>

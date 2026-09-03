@@ -55,6 +55,8 @@ class BlockerService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var lastNotifText = ""
     private var lastWidgetKey = ""
+    /** When the last tick ran, so a pause can absorb exactly that much time. */
+    private var lastTickAt = 0L
 
     private val tick = object : Runnable {
         override fun run() {
@@ -88,6 +90,7 @@ class BlockerService : Service() {
             }
             else -> {
                 createChannel()
+                lastTickAt = System.currentTimeMillis()
                 goForeground(buildNotification(Session.remainingMs(this)))
                 handler.removeCallbacks(tick)
                 handler.post(tick)
@@ -127,11 +130,17 @@ class BlockerService : Service() {
         syncWidget(remaining)
 
         if (running) {
-            if (remaining <= 0L) {
+            // The clock only moves while the app being timed is the one on
+            // screen. Leave it and the deadline slides forward by however long
+            // you were away, so the session resumes exactly where it stopped.
+            val paused = applyPause()
+            val left = Session.remainingMs(this)
+
+            if (!paused && left <= 0L) {
                 fire()
             } else {
-                if (remaining in 1L..60_000L && !Session.hasWarned(this)) warnOneMinute()
-                updateNotification(remaining)
+                if (!paused && left in 1L..60_000L && !Session.hasWarned(this)) warnOneMinute()
+                updateNotification(left)
             }
             return true
         }
@@ -149,6 +158,37 @@ class BlockerService : Service() {
 
         shutdown()
         return false
+    }
+
+    /**
+     * Freezes the countdown whenever the timed app is not in the foreground, by
+     * pushing the deadline forward rather than tracking a separate remainder --
+     * the arithmetic stays in one place and survives the process being killed.
+     *
+     * @return true when the session is currently paused.
+     */
+    private fun applyPause(): Boolean {
+        val now = System.currentTimeMillis()
+        val previous = lastTickAt
+        lastTickAt = now
+
+        // Without usage access there is no way to know what is on screen, so
+        // the timer keeps running instead of stalling forever.
+        if (!Usage.hasAccess(this)) {
+            Session.setPaused(this, false)
+            return false
+        }
+
+        val target = Session.blockedPackage(this)
+        val current = Usage.foregroundPackage(this)
+        val inTarget = current != null && current == target
+        Session.setPaused(this, !inTarget)
+
+        if (!inTarget && previous > 0L) {
+            val away = (now - previous).coerceAtLeast(0L)
+            if (away > 0L) Session.setEndsAt(this, Session.endsAt(this) + away)
+        }
+        return !inTarget
     }
 
     /** A short double-buzz at the one-minute mark, so zero isn't a surprise. */
@@ -274,6 +314,10 @@ class BlockerService : Service() {
     private fun notifText(remaining: Long): String {
         val label = Session.label(this).ifEmpty { "Session" }
         return when {
+            // Paused says so outright, because a frozen number with no
+            // explanation just looks like the timer has broken.
+            Session.isRunning(this) && Session.isPaused(this) ->
+                "$label · paused · ${fmt(remaining)} left"
             Session.isRunning(this) -> "$label · ${fmt(remaining)} left"
             Session.isIndefinite(this) -> "$label is blocked · open Cutoff to stop"
             Session.inLockout(this) ->
@@ -307,7 +351,13 @@ class BlockerService : Service() {
         val elapsed = (total - remaining).coerceIn(0L, total)
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(if (running) "$label · ${fmt(remaining)} left" else "Cutoff")
+            .setContentTitle(
+                when {
+                    running && Session.isPaused(this) -> "$label · paused"
+                    running -> "$label · ${fmt(remaining)} left"
+                    else -> "Cutoff"
+                }
+            )
             .setContentText(notifText(remaining))
             .setSmallIcon(applicationInfo.icon)
             .setOngoing(true)
@@ -331,7 +381,7 @@ class BlockerService : Service() {
             builder.addAction(0, "Dismiss", stopPI)
         }
 
-        if (running) {
+        if (running && !Session.isPaused(this)) {
             // A self-updating countdown in the shade — no per-second redraw needed.
             builder
                 .setUsesChronometer(true)

@@ -34,9 +34,11 @@ import { summarise } from './components/Stats';
 
 const EMPTY = {
   running: false,
+  paused: false,
   remainingMs: 0,
   durationMs: 0,
   endsAt: 0,
+  startedAt: 0,
   expired: false,
   inLockout: false,
   blockedForever: false,
@@ -238,14 +240,17 @@ const emit = () => {
 export const reconcileHistory = async () => {
   const s = getState();
   if (!(s.expired || s.inLockout)) return false;
-  if (!s.durationMs || !s.endsAt) return false;
+  // Keyed on when the session STARTED: the deadline slides forward every time
+  // you leave the app, so it can't identify anything.
+  const id = s.startedAt || s.endsAt;
+  if (!s.durationMs || !id) return false;
 
   const last = Number(await loadLastLogged()) || 0;
-  if (s.endsAt <= last) return false;
+  if (id <= last) return false;
 
-  await saveLastLogged(s.endsAt);
+  await saveLastLogged(id);
   await pushHistory({
-    at: s.endsAt,
+    at: Date.now(),
     app: s.label,
     plannedMs: s.durationMs,
     actualMs: s.durationMs,
@@ -274,9 +279,11 @@ export const getState = () => {
     if (!s) return EMPTY;
     return {
       running: !!s.running,
+      paused: !!s.paused,
       remainingMs: Number(s.remainingMs) || 0,
       durationMs: Number(s.durationMs) || 0,
       endsAt: Number(s.endsAt) || 0,
+      startedAt: Number(s.startedAt) || 0,
       expired: !!s.expired,
       inLockout: !!s.inLockout,
       blockedForever: !!s.blockedForever,
@@ -296,9 +303,12 @@ export const getState = () => {
   const expired = fallback.expired || (fallback.endsAt > 0 && remaining <= 0);
   return {
     running: !expired && remaining > 0,
+    // iOS cannot see what is on screen, so a session there never pauses.
+    paused: false,
     remainingMs: remaining,
     durationMs: fallback.durationMs || 0,
     endsAt: fallback.endsAt || 0,
+    startedAt: fallback.startedAt || 0,
     expired,
     // iOS can't watch what you open, so an endless block can't be enforced there.
     inLockout: lockoutRemaining > 0,
@@ -350,6 +360,7 @@ export const start = async (app, settings) => {
     appId: app.id,
     label: app.name,
     message: chosen,
+    startedAt: Date.now(),
     durationMs,
     endsAt: Date.now() + durationMs,
     lockoutUntil: lockoutMs > 0 ? Date.now() + durationMs + lockoutMs : 0,

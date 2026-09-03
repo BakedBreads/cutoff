@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Image } from 'react-native';
 import { C, T, MONO } from '../theme';
 import { humanDuration, initials } from '../format';
+import { APP_NOTES } from '../presets';
 import { canHardBlock, getAppIcon, isAppInstalled } from '../blocker';
 import { resolveAndroidPackage } from '../session';
 import { HardPress } from './ui';
@@ -12,6 +13,7 @@ import { IconClock, IconAlert, IconLock } from '../icons';
  * PackageManager; everywhere else we fall back to a mono monogram.
  */
 export default function AppTile({ app, size, blocked, onPress, onLongPress }) {
+  const note = app.note || APP_NOTES[app.preset] || '';
   const [icon, setIcon] = useState(null);
   const [missing, setMissing] = useState(false);
 
@@ -32,7 +34,7 @@ export default function AppTile({ app, size, blocked, onPress, onLongPress }) {
       onLongPress={onLongPress}
       fill={blocked ? C.ink : C.paper}
       style={{ width: size }}
-      inner={{ padding: 14, height: size * 1.06 }}
+      inner={{ padding: 14, height: size * 1.24 }}
     >
       {/* icon */}
       <View
@@ -65,6 +67,23 @@ export default function AppTile({ app, size, blocked, onPress, onLongPress }) {
           </Text>
         )}
       </View>
+
+      {/* A tile used to be a name and a number with a lot of air between
+          them. The note gives it something to say. */}
+      {note && !blocked ? (
+        <Text
+          numberOfLines={2}
+          style={{
+            fontFamily: MONO,
+            fontSize: 9.5,
+            lineHeight: 13,
+            color: C.dimmer,
+            marginTop: 9,
+          }}
+        >
+          {note}
+        </Text>
+      ) : null}
 
       <View style={{ flex: 1 }} />
 

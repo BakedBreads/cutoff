@@ -41,6 +41,7 @@ import AppFormScreen from './src/screens/AppFormScreen';
 import PickerScreen from './src/screens/PickerScreen';
 import PermissionsScreen from './src/screens/PermissionsScreen';
 import AboutScreen from './src/screens/AboutScreen';
+import StreakScreen from './src/screens/StreakScreen';
 import MessagesScreen from './src/screens/MessagesScreen';
 import SoundsScreen from './src/screens/SoundsScreen';
 
@@ -48,7 +49,9 @@ const EMPTY_STATE = {
   running: false,
   remainingMs: 0,
   durationMs: 0,
+  paused: false,
   endsAt: 0,
+  startedAt: 0,
   expired: false,
   inLockout: false,
   blockedForever: false,
@@ -283,6 +286,14 @@ export default function App() {
 
   const deleteApp = (id) => updateApps(apps.filter((a) => a.id !== id));
 
+  /** Puts every preference back to its shipped value. Apps and history stay. */
+  const handleResetSettings = async () => {
+    const next = { ...DEFAULT_SETTINGS };
+    settingsRef.current = next;
+    setSettings(next);
+    await saveSettings(next);
+  };
+
   const handleClearHistory = async () => {
     await clearHistory();
     setHistory([]);
@@ -333,12 +344,17 @@ export default function App() {
             onOpenSounds={() => push('sounds')}
             onOpenPermissions={() => push('permissions')}
             onOpenAbout={() => push('about')}
+            onOpenStreak={() => push('streak')}
+            onResetSettings={handleResetSettings}
             onBack={pop}
           />
         );
 
       case 'about':
         return <AboutScreen history={history} apps={apps} onBack={pop} />;
+
+      case 'streak':
+        return <StreakScreen history={history} onBack={pop} />;
 
       case 'apps':
         return (
@@ -409,6 +425,7 @@ export default function App() {
             blockedForever={state.blockedForever}
             onUnblock={handleUnblock}
             onDeleteApp={deleteApp}
+            onOpenStreak={() => push('streak')}
             onStart={handleStart}
             onEditApp={(app) => push('appform', { app })}
             onAddApp={() => push('picker')}
@@ -489,15 +506,6 @@ export default function App() {
           >
             <Wordmark size={62} color={C.bg} carve={C.ink} />
           </Animated.View>
-
-          {/* the rule draws out from the centre */}
-          <Animated.View
-            style={{
-              height: 3,
-              backgroundColor: C.bg,
-              width: mark.interpolate({ inputRange: [0, 1], outputRange: [0, 120] }),
-            }}
-          />
 
           <Animated.Text
             style={[

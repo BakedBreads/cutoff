@@ -189,6 +189,8 @@ class AppBlockerModule : Module() {
             val now = System.currentTimeMillis()
             bundleOf(
                 "running" to Session.isRunning(context),
+                "paused" to (Session.isRunning(context) && Session.isPaused(context)),
+                "startedAt" to Session.startedAt(context).toDouble(),
                 "remainingMs" to Session.remainingMs(context).toDouble(),
                 "endsAt" to Session.endsAt(context).toDouble(),
                 "durationMs" to Session.durationMs(context).toDouble(),

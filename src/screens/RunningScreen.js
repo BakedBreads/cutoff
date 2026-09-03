@@ -24,11 +24,13 @@ export default function RunningScreen({
     state.durationMs > 0
       ? Math.min(1, Math.max(0, 1 - state.remainingMs / state.durationMs))
       : 0;
-  const nearlyOver = state.remainingMs > 0 && state.remainingMs <= NEARLY_OVER;
-  const finalTen = state.remainingMs > 0 && state.remainingMs <= FINAL_TEN;
+  const paused = !!state.paused;
+  const nearlyOver = !paused && state.remainingMs > 0 && state.remainingMs <= NEARLY_OVER;
+  const finalTen = !paused && state.remainingMs > 0 && state.remainingMs <= FINAL_TEN;
   // Hard invert once per second over the last ten. No scaling — this language
   // is built on edges, and a breathing number looks borrowed from elsewhere.
   const inverted = useBlink(finalTen, 500);
+  const slowBlink = useBlink(paused, 900);
   const label = String(state.label || app?.name || 'APP').toUpperCase();
 
   return (
@@ -42,7 +44,7 @@ export default function RunningScreen({
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-        <Kicker style={{ flex: 1 }}>Session running</Kicker>
+        <Kicker style={{ flex: 1 }}>{paused ? 'Session paused' : 'Session running'}</Kicker>
         <IconButton icon={<IconGear />} onPress={onOpenSettings} size={40} />
       </View>
 
@@ -69,7 +71,13 @@ export default function RunningScreen({
               fontSize: state.remainingMs >= 3600_000 ? 58 : 76,
               fontWeight: '700',
               letterSpacing: -4,
-              color: inverted ? C.bg : nearlyOver ? C.danger : C.ink,
+              color: inverted
+                ? C.bg
+                : nearlyOver
+                ? C.danger
+                : paused && slowBlink
+                ? C.dimmer
+                : C.ink,
             }}
           >
             {clock(state.remainingMs)}
@@ -82,7 +90,9 @@ export default function RunningScreen({
             { fontSize: 12, marginBottom: 26, color: finalTen ? C.danger : C.dim },
           ]}
         >
-          {finalTen
+          {paused
+            ? `Paused — open ${label} and it picks up here.`
+            : finalTen
             ? 'Seconds out.'
             : nearlyOver
             ? 'Last minute — wrap it up.'
