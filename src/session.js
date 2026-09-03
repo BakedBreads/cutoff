@@ -281,9 +281,8 @@ export const getState = () => {
 export const start = async (app, settings) => {
   const durationMs =
     Number(app.durationMs) || Number(settings.defaultDurationMs) || 20 * 60_000;
-  const lockoutSetting = Number(settings.lockoutMinutes);
-  const lockoutMs =
-    lockoutSetting < 0 ? -1 : Math.max(0, lockoutSetting || 0) * 60_000;
+  const setting = Number(settings.lockoutMs);
+  const lockoutMs = setting < 0 ? -1 : Math.max(0, setting || 0);
 
   if (canHardBlock) {
     const pkg = resolveAndroidPackage(app);

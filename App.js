@@ -40,6 +40,7 @@ import AppsScreen from './src/screens/AppsScreen';
 import AppFormScreen from './src/screens/AppFormScreen';
 import PickerScreen from './src/screens/PickerScreen';
 import PermissionsScreen from './src/screens/PermissionsScreen';
+import AboutScreen from './src/screens/AboutScreen';
 import MessagesScreen from './src/screens/MessagesScreen';
 import SoundsScreen from './src/screens/SoundsScreen';
 
@@ -327,9 +328,13 @@ export default function App() {
             onManageMessages={() => push('messages')}
             onOpenSounds={() => push('sounds')}
             onOpenPermissions={() => push('permissions')}
+            onOpenAbout={() => push('about')}
             onBack={pop}
           />
         );
+
+      case 'about':
+        return <AboutScreen history={history} apps={apps} onBack={pop} />;
 
       case 'apps':
         return (

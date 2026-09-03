@@ -46,7 +46,7 @@ object Overlay {
         val dim = if (dark) Color.parseColor("#8A8A93") else Color.parseColor("#6B6B6B")
         val btnBg = if (dark) Color.parseColor("#F5F4F1") else Color.parseColor("#0A0A0A")
         val btnInk = if (dark) Color.parseColor("#0A0A0A") else Color.parseColor("#F2F1EE")
-        val shadow = if (dark) Color.parseColor("#3A3A40") else Color.parseColor("#0A0A0A")
+        val shadow = if (dark) Color.parseColor("#3A3A40") else Color.parseColor("#C3BFB5")
     }
 
     // ---- public api ---------------------------------------------------------

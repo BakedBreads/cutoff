@@ -113,23 +113,26 @@ export const DEFAULT_APPS = [
   },
 ];
 
+/** Where feedback goes. Shown on the about screen. */
+export const CONTACT_EMAIL = 'nauf4n2011@gmail.com';
+
 export const DEFAULT_SETTINGS = {
   /** Big lines for the block screen. One is picked at random per session. */
   messages: ['TIME TO STUDY'],
   /** The smaller line under it. */
   submessage: 'Put the phone down. You said you would.',
   /**
-   * How long the app stays blocked after the timer ends.
-   * -1 = until you stop it in Cutoff (the default), 0 = off, or a minute count.
+   * How long the app stays blocked after the timer ends, in milliseconds.
+   * -1 = until you stop it in Cutoff (the default), 0 = off.
    */
-  lockoutMinutes: -1,
+  lockoutMs: -1,
   /** Default length for newly added apps, in milliseconds. */
   defaultDurationMs: 20 * 60_000,
   /** Block screen palette: false = paper (white), true = blackout. */
   darkBlockScreen: false,
   vibrate: true,
-  /** Ask before starting, instead of launching immediately on tap. */
-  confirmBeforeStart: false,
+  /** Open the length sheet on tap, so you can type a time every session. */
+  confirmBeforeStart: true,
   /** Play a tone when time runs out. */
   soundEnabled: true,
   /** Chosen tone; empty means the system default alarm. */

@@ -97,7 +97,7 @@ export default function RunningScreen({
               >
                 <IconLock size={14} color={C.dim} />
                 <Text style={[T.kicker, { letterSpacing: 0.9, flex: 1 }]}>
-                  {Number(settings.lockoutMinutes) < 0
+                  {Number(settings.lockoutMs) < 0
                     ? `${label} STAYS BLOCKED UNTIL YOU STOP IT`
                     : `THIS SCREEN WILL COVER ${label}`}
                 </Text>

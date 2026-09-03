@@ -62,6 +62,13 @@ export const loadSettings = async () => {
   delete merged.defaultMinutes;
   delete merged.holdToEnd;
 
+  // v1.2 kept lockout in whole minutes; v1.3 uses milliseconds like the rest.
+  if (typeof merged.lockoutMs !== 'number') {
+    const mins = Number(stored.lockoutMinutes);
+    merged.lockoutMs = mins < 0 || Number.isNaN(mins) ? -1 : mins * 60_000;
+  }
+  delete merged.lockoutMinutes;
+
   // v1.0 kept a single `message`; v1.1 rotates through a list.
   if (!Array.isArray(merged.messages) || merged.messages.length === 0) {
     merged.messages = stored.message

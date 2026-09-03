@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cutoff_widget_label">Cutoff</string>
+    <string name="cutoff_widget_description">Shows the running countdown, or what is blocked.</string>
+</resources>

@@ -138,6 +138,7 @@ class AppBlockerModule : Module() {
             )
             Overlay.dismiss(context)
             BlockerService.start(context)
+            CutoffWidget.refresh(context)
 
             if (config.launch) {
                 launchIntent(config.packageName)?.let {
@@ -165,7 +166,11 @@ class AppBlockerModule : Module() {
             Session.endLockout(context)
             Overlay.dismiss(context)
             BlockerService.stop(context)
+            CutoffWidget.refresh(context)
         }
+
+        /** Redraws the home-screen widget from current state. */
+        Function("refreshWidget") { CutoffWidget.refresh(context) }
 
         Function("dismissOverlay") { Overlay.dismiss(context) }
 

@@ -23,6 +23,19 @@
         tools:ignore="QueryAllPackagesPermission" />
 
     <application>
+        <receiver
+            android:name=".CutoffWidget"
+            android:exported="false"
+            android:label="@string/cutoff_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="cutoff.WIDGET_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/cutoff_widget_info" />
+        </receiver>
+
         <service
             android:name=".BlockerService"
             android:exported="false"

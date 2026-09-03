@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  updatePeriodMillis is deliberately 0: Android clamps it to 30 minutes anyway,
+  which is useless for a countdown. The service pushes updates itself while a
+  session is live, and the widget falls back to whatever it last drew otherwise.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:minResizeWidth="140dp"
+    android:minResizeHeight="80dp"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:initialLayout="@layout/cutoff_widget"
+    android:previewLayout="@layout/cutoff_widget"
+    android:description="@string/cutoff_widget_description"
+    android:updatePeriodMillis="0" />
