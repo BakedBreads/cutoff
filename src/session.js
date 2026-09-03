@@ -18,6 +18,8 @@ import {
   loadHistory,
   loadNotifiedStreak,
   saveNotifiedStreak,
+  loadLastLogged,
+  saveLastLogged,
 } from './storage';
 import { summarise } from './components/Stats';
 
@@ -34,6 +36,7 @@ const EMPTY = {
   running: false,
   remainingMs: 0,
   durationMs: 0,
+  endsAt: 0,
   expired: false,
   inLockout: false,
   blockedForever: false,
@@ -223,6 +226,34 @@ const emit = () => {
   });
 };
 
+/**
+ * A session finishes inside native code, so JS may only learn about it the next
+ * time the app runs. Log it the moment we notice, keyed on the session's own
+ * deadline so it lands in history exactly once — whether the user then
+ * acknowledges the screen, holds to unblock, or never opens that screen at all.
+ *
+ * Before this, history was only written on acknowledge, so anyone who unblocked
+ * instead of acknowledging never got a session counted and the streak stalled.
+ */
+export const reconcileHistory = async () => {
+  const s = getState();
+  if (!(s.expired || s.inLockout)) return false;
+  if (!s.durationMs || !s.endsAt) return false;
+
+  const last = Number(await loadLastLogged()) || 0;
+  if (s.endsAt <= last) return false;
+
+  await saveLastLogged(s.endsAt);
+  await pushHistory({
+    at: s.endsAt,
+    app: s.label,
+    plannedMs: s.durationMs,
+    actualMs: s.durationMs,
+    endedEarly: false,
+  });
+  return true;
+};
+
 export const hydrate = async () => {
   if (!canHardBlock) {
     fallback = await loadFallbackSession();
@@ -233,6 +264,7 @@ export const hydrate = async () => {
       await saveFallbackSession(fallback);
     }
   }
+  await reconcileHistory();
   emit();
 };
 
@@ -244,6 +276,7 @@ export const getState = () => {
       running: !!s.running,
       remainingMs: Number(s.remainingMs) || 0,
       durationMs: Number(s.durationMs) || 0,
+      endsAt: Number(s.endsAt) || 0,
       expired: !!s.expired,
       inLockout: !!s.inLockout,
       blockedForever: !!s.blockedForever,
@@ -265,6 +298,7 @@ export const getState = () => {
     running: !expired && remaining > 0,
     remainingMs: remaining,
     durationMs: fallback.durationMs || 0,
+    endsAt: fallback.endsAt || 0,
     expired,
     // iOS can't watch what you open, so an endless block can't be enforced there.
     inLockout: lockoutRemaining > 0,
@@ -351,16 +385,9 @@ export const stop = async () => {
 
 /** User has seen the "time's up" screen inside the app. Lockout keeps running. */
 export const acknowledge = async () => {
-  const state = getState();
-  if (state.durationMs > 0) {
-    await pushHistory({
-      at: Date.now(),
-      app: state.label,
-      plannedMs: state.durationMs,
-      actualMs: state.durationMs,
-      endedEarly: false,
-    });
-  }
+  // reconcileHistory() already logged this session when it ended, so
+  // acknowledging is purely dismissing the screen.
+  await reconcileHistory();
   if (canHardBlock) {
     acknowledgeNative();
   } else {

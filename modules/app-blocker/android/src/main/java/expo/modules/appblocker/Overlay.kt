@@ -62,14 +62,15 @@ object Overlay {
         vibrate: Boolean,
         soundUri: String = "",
         soundEnabled: Boolean = false,
-        loopSound: Boolean = false
+        loopSound: Boolean = false,
+        preview: Boolean = false
     ) = main.post {
         if (root != null) return@post
         if (!canDraw(context)) return@post
 
         val ctx = context.applicationContext
         val p = Palette(dark)
-        val view = buildView(ctx, p, title, subtitle, appLabel, spentMs, lockoutMs)
+        val view = buildView(ctx, p, title, subtitle, appLabel, spentMs, lockoutMs, preview)
 
         val type =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
@@ -148,10 +149,15 @@ object Overlay {
         subtitle: String,
         appLabel: String,
         spentMs: Long,
-        lockoutMs: Long
+        lockoutMs: Long,
+        preview: Boolean
     ): FrameLayout {
 
-        val root = Root(ctx) { dismissAndGoHome(ctx) }
+        // A preview just closes; a real block screen also sends you home, which
+        // is the whole point of it landing on top of another app.
+        val leave: () -> Unit = if (preview) ({ dismiss(ctx) }) else ({ dismissAndGoHome(ctx) })
+
+        val root = Root(ctx) { leave() }
         root.setBackgroundColor(p.bg)
         root.isClickable = true
         root.isFocusable = true
@@ -212,7 +218,7 @@ object Overlay {
 
         // ── primary button, with a hard offset shadow ───────────────────────
         col.addView(
-            hardButton(ctx, p, "CLOSE") { dismissAndGoHome(ctx) },
+            hardButton(ctx, p, if (preview) "CLOSE PREVIEW" else "CLOSE") { leave() },
             lp(LinearLayout.LayoutParams.MATCH_PARENT, dp(ctx, 60), dp(ctx, 34)).also {
                 it.rightMargin = dp(ctx, 5)
             }
@@ -220,12 +226,17 @@ object Overlay {
 
         // ── secondary text action ───────────────────────────────────────────
         col.addView(
-            mono(ctx, "STILL BLOCKED  ·  OPEN CUTOFF TO STOP", 11f, p.dim, bold = true).apply {
+            mono(
+                ctx,
+                if (preview) "THIS IS A PREVIEW  ·  NOTHING IS BLOCKED"
+                else "STILL BLOCKED  ·  OPEN CUTOFF TO STOP",
+                11f, p.dim, bold = true
+            ).apply {
                 letterSpacing = 0.14f
                 gravity = Gravity.CENTER
                 setPadding(dp(ctx, 12), dp(ctx, 16), dp(ctx, 12), dp(ctx, 4))
                 isClickable = true
-                setOnClickListener { dismissAndOpenApp(ctx) }
+                setOnClickListener { if (preview) dismiss(ctx) else dismissAndOpenApp(ctx) }
             },
             lp(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT, dp(ctx, 10))
         )

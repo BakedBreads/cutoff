@@ -48,6 +48,7 @@ const EMPTY_STATE = {
   running: false,
   remainingMs: 0,
   durationMs: 0,
+  endsAt: 0,
   expired: false,
   inLockout: false,
   blockedForever: false,
@@ -106,19 +107,19 @@ export default function App() {
           tension: 90,
           useNativeDriver: true,
         }),
-        Animated.delay(240),
+        Animated.delay(420),
         // 2. the panel wipes upward while the app rises into place
         Animated.parallel([
           Animated.timing(splash, {
             toValue: 1,
-            duration: 560,
+            duration: 760,
             easing: EASE,
             useNativeDriver: true,
           }),
           Animated.timing(launch, {
             toValue: 1,
-            duration: 520,
-            delay: 80,
+            duration: 700,
+            delay: 140,
             easing: EASE,
             useNativeDriver: true,
           }),
@@ -236,6 +237,9 @@ export default function App() {
   };
 
   const handleEndLockout = async () => {
+    await Session.reconcileHistory();
+    setHistory(await loadHistory());
+    Session.maybeNotifyStreak(settingsRef.current);
     await Session.endLockout();
     refresh();
   };
