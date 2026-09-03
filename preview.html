@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cutoff — Local Preview</title>
+<!--
+  A working prototype of the Cutoff app, in one file.
+  No internet needed. Double-click it and click around.
+
+  This is a re-implementation for preview only — the real app is React Native
+  with a Kotlin module. Colours, spacing and copy match v1.3 exactly.
+-->
+<style>
+:root {
+  /* the app's palette, v1.3 */
+  --paper:  #F2F1EE;
+  --ink:    #0A0A0A;
+  --dim:    #6B6B6B;
+  --dimmer: #A3A099;
+  --rule:   #D9D7D2;
+  --shadow: #C3BFB5;
+  --danger: #C4231A;
+  --ok:     #1F7A3D;
+
+  /* the desk this sits on */
+  --desk:   #26282B;
+  --desk-2: #33363A;
+  --desk-t: #C8CBD0;
+  --desk-d: #878C93;
+
+  --mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", Consolas, "DejaVu Sans Mono", monospace;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--desk);
+  color: var(--desk-t);
+  font-family: var(--mono);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 40px;
+  padding: 40px 24px 60px;
+  flex-wrap: wrap;
+}
+
+/* ── the phone ────────────────────────────────────────────── */
+
+#phone {
+  width: 340px;
+  height: 720px;
+  flex: 0 0 auto;
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  box-shadow: 8px 8px 0 #000;
+  position: relative;
+  overflow: hidden;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+.status {
+  flex: 0 0 28px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px;
+  font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  color: var(--dim);
+}
+
+#view { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.scroll { flex: 1; overflow-y: auto; padding: 4px 18px 22px; }
+.scroll::-webkit-scrollbar { width: 0; }
+
+/* ── primitives ───────────────────────────────────────────── */
+
+.k { font-size: 9.5px; font-weight: 700; letter-spacing: .16em; color: var(--dim); }
+
+.krow { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; }
+.krow .bar { width: 17px; height: 3px; background: var(--ink); flex: 0 0 auto; }
+.krow .line { flex: 1; height: 1px; background: var(--rule); }
+
+.hard {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  box-shadow: 5px 5px 0 var(--shadow);
+  margin: 0 5px 5px 0;
+}
+
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  width: calc(100% - 5px);
+  background: var(--ink); color: var(--paper);
+  border: 2px solid var(--ink);
+  box-shadow: 5px 5px 0 var(--shadow);
+  margin: 0 5px 5px 0;
+  padding: 15px;
+  font-family: var(--mono); font-size: 12.5px; font-weight: 700; letter-spacing: .15em;
+  cursor: pointer;
+}
+.btn.out { background: var(--paper); color: var(--ink); }
+.btn.sm { padding: 10px 13px; font-size: 11px; }
+.btn:active { transform: translate(5px, 5px); box-shadow: none; }
+
+.chip {
+  border: 2px solid var(--ink); background: transparent; color: var(--ink);
+  padding: 7px 11px;
+  font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+  cursor: pointer;
+}
+.chip.on { background: var(--ink); color: var(--paper); }
+
+.row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.row:last-child { border-bottom: none; }
+.row .t { font-size: 12px; font-weight: 700; }
+.row .s { font-size: 9.5px; color: var(--dim); margin-top: 4px; line-height: 1.45; }
+.row.tap { cursor: pointer; }
+.row.tap:active { opacity: .55; }
+
+.tgl { width: 44px; height: 24px; border: 2px solid var(--ink); padding: 2px; display: flex; flex: 0 0 auto; cursor: pointer; }
+.tgl i { width: 16px; height: 16px; background: var(--ink); display: block; }
+.tgl.on { background: var(--ink); justify-content: flex-end; }
+.tgl.on i { background: var(--paper); }
+
+.iconbtn {
+  width: 38px; height: 38px;
+  border: 2px solid var(--ink); background: var(--paper);
+  box-shadow: 4px 4px 0 var(--shadow); margin: 0 4px 4px 0;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.iconbtn:active { transform: translate(4px,4px); box-shadow: none; }
+
+.hr { height: 1px; background: var(--dim); opacity: .45; }
+
+/* ── home ─────────────────────────────────────────────────── */
+
+.head { display: flex; align-items: center; gap: 11px; padding: 8px 18px 14px; }
+.head .name { font-size: 15px; font-weight: 700; letter-spacing: .26em; }
+
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+
+.tile {
+  background: var(--paper); border: 2px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--shadow); margin: 0 4px 4px 0;
+  padding: 12px; height: 136px;
+  display: flex; flex-direction: column; cursor: pointer; text-align: left;
+  font-family: var(--mono); color: var(--ink);
+}
+.tile:active { transform: translate(4px,4px); box-shadow: none; }
+.tile.blocked { background: var(--ink); color: var(--paper); }
+.tile.add { border-style: dashed; align-items: center; justify-content: center; gap: 11px; }
+
+.well {
+  width: 44px; height: 44px; border: 2px solid var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700; overflow: hidden; flex: 0 0 auto;
+}
+.tile.blocked .well { border-color: var(--paper); }
+.tile .nm { font-size: 13.5px; font-weight: 700; margin-bottom: 7px; }
+.tile .mt { font-size: 9.5px; font-weight: 700; letter-spacing: .1em; color: var(--dim); display: flex; align-items: center; gap: 5px; }
+.tile.blocked .mt { color: var(--paper); }
+.grow { flex: 1; }
+
+.bars { display: flex; align-items: flex-end; gap: 4px; height: 46px; }
+.bars > div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.bars b { width: 100%; display: block; }
+.bars span { font-size: 8px; font-weight: 700; color: var(--dimmer); }
+
+/* ── running ──────────────────────────────────────────────── */
+
+.clock { font-size: 66px; font-weight: 700; letter-spacing: -.06em; line-height: 1; }
+.clock.hot { color: var(--danger); }
+@keyframes breathe { 0%,100% { transform: scale(1); opacity: 1 } 50% { transform: scale(1.045); opacity: .72 } }
+.clock.hot { animation: breathe 1.1s ease-in-out infinite; transform-origin: left center; }
+
+.prog { height: 22px; border: 2px solid var(--ink); background: var(--paper); padding: 3px; }
+.prog i { display: block; height: 100%; background: var(--ink); transition: width .4s cubic-bezier(.22,1,.36,1); }
+.prog.hot i { background: var(--danger); }
+
+/* ── block screen ─────────────────────────────────────────── */
+
+#block {
+  position: absolute; inset: 0; z-index: 40;
+  background: var(--paper); color: var(--ink);
+  padding: 34px 26px 26px;
+  display: none; flex-direction: column;
+}
+#block.on { display: flex; animation: slam .32s cubic-bezier(.22,1,.36,1); }
+#block.dark { background: #0A0A0A; color: #F5F4F1; }
+#block.dark .k, #block.dark .sub { color: #8A8A93; }
+#block.dark .hr { background: #8A8A93; }
+#block.dark .btn { background: #F5F4F1; color: #0A0A0A; border-color: #F5F4F1; box-shadow: 5px 5px 0 #3A3A40; }
+@keyframes slam { from { opacity: 0; transform: scale(1.04) } to { opacity: 1; transform: none } }
+
+.bighead { font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.05; }
+.sub { font-size: 13px; color: var(--dim); line-height: 1.5; margin-top: 15px; }
+
+/* ── sheet ────────────────────────────────────────────────── */
+
+#scrim { position: absolute; inset: 0; background: rgba(10,10,10,.45); z-index: 30; display: none; }
+#scrim.on { display: block; }
+#sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 31;
+  background: var(--paper); border-top: 3px solid var(--ink);
+  padding: 18px 18px 22px; display: none;
+  max-height: 88%; overflow-y: auto;
+}
+#sheet.on { display: block; animation: rise .26s cubic-bezier(.22,1,.36,1); }
+@keyframes rise { from { transform: translateY(100%) } to { transform: none } }
+
+.numrow { display: flex; gap: 11px; align-items: stretch; }
+.numbox { flex: 1; border: 2px solid var(--ink); background: var(--paper); display: flex; }
+.numbox input {
+  width: 100%; border: 0; background: transparent; text-align: center;
+  font-family: var(--mono); font-size: 34px; font-weight: 700; letter-spacing: -.04em;
+  color: var(--ink); padding: 11px 0;
+}
+.numbox input:focus { outline: none; }
+.units { display: flex; flex-direction: column; gap: 5px; }
+.units .chip { min-width: 74px; text-align: center; font-size: 9.5px; padding: 5px 10px; }
+
+/* ── splash ───────────────────────────────────────────────── */
+
+#splash {
+  position: absolute; inset: 0; z-index: 60; background: var(--ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+}
+#splash.gone { animation: wipe .55s cubic-bezier(.7,0,.3,1) forwards; }
+@keyframes wipe { to { transform: translateY(-101%); } }
+#splash .rule { width: 0; height: 3px; background: var(--paper); animation: draw .42s .16s cubic-bezier(.22,1,.36,1) forwards; }
+@keyframes draw { to { width: 96px } }
+#splash .word { font-size: 11px; font-weight: 700; letter-spacing: .5em; color: var(--paper); padding-left: .5em; opacity: 0; animation: fin .4s .3s forwards; }
+@keyframes fin { to { opacity: 1 } }
+#splash svg { animation: stamp .5s cubic-bezier(.2,1.5,.4,1); }
+@keyframes stamp { from { transform: scale(.5); opacity: 0 } to { transform: none; opacity: 1 } }
+
+/* ── the desk panel ───────────────────────────────────────── */
+
+#desk { width: 320px; flex: 0 0 auto; padding-top: 6px; }
+#desk h1 { font-size: 26px; letter-spacing: -.02em; margin: 0 0 8px; color: #fff; font-weight: 700; }
+#desk .lede { font-size: 12.5px; line-height: 1.65; color: var(--desk-d); margin: 0 0 22px; }
+#desk h2 { font-size: 10px; letter-spacing: .2em; color: var(--desk-d); margin: 26px 0 11px; font-weight: 700; }
+#desk .dbtn {
+  width: 100%; text-align: left; background: var(--desk-2); color: var(--desk-t);
+  border: 1px solid #45494F; padding: 11px 13px; margin-bottom: 7px;
+  font-family: var(--mono); font-size: 11.5px; font-weight: 700; letter-spacing: .05em; cursor: pointer;
+}
+#desk .dbtn:hover { background: #3D4147; color: #fff; }
+#desk .dbtn:active { transform: translateY(1px); }
+#desk .dbtn small { display: block; font-weight: 400; letter-spacing: 0; color: var(--desk-d); margin-top: 4px; font-size: 10.5px; }
+#desk .note { font-size: 11px; line-height: 1.6; color: var(--desk-d); border-left: 2px solid #45494F; padding-left: 12px; margin-top: 22px; }
+#desk .note b { color: var(--desk-t); }
+
+@media (max-width: 760px) {
+  body { padding: 20px 14px 50px; gap: 26px; }
+  #phone { width: 100%; max-width: 340px; }
+  #desk { width: 100%; max-width: 340px; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div id="phone">
+  <div class="status"><span id="clockNow">9:41</span><span>&#9646;&#9646;&#9646;</span></div>
+  <div id="view"></div>
+
+  <div id="scrim"></div>
+  <div id="sheet"></div>
+  <div id="block"></div>
+
+  <div id="splash">
+    <svg width="58" height="58" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="2" y="2" width="20" height="20" fill="#F2F1EE"></rect>
+      <rect x="7" y="7" width="10" height="4" fill="#0A0A0A"></rect>
+      <rect x="7" y="7" width="4" height="10" fill="#0A0A0A"></rect>
+      <rect x="7" y="13" width="10" height="4" fill="#0A0A0A"></rect>
+    </svg>
+    <div class="rule"></div>
+    <div class="word">CUTOFF</div>
+  </div>
+</div>
+
+<div id="desk">
+  <h1>Cutoff — local preview</h1>
+  <p class="lede">
+    A working copy of the app, running in your browser. Click the tiles, start a session,
+    change the settings. The countdown is real.
+  </p>
+
+  <h2>SHORTCUTS</h2>
+  <button class="dbtn" id="dSkip">Jump to the last 8 seconds<small>Skip the wait and watch it end</small></button>
+  <button class="dbtn" id="dZero">Fire the block screen now<small>See what lands on top of TikTok</small></button>
+  <button class="dbtn" id="dUnblock">Lift any block<small>Same as holding the button in-app</small></button>
+  <button class="dbtn" id="dReplay">Replay the launch animation</button>
+  <button class="dbtn" id="dReset">Reset everything</button>
+
+  <p class="note">
+    <b>This is a preview, not the app.</b> The real thing is an Android APK — the block
+    screen there is a system overlay that covers TikTok itself, which no web page can do.
+    Everything you see here matches it in colour, spacing and wording.
+  </p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── data ─────────────────────────────────────────────────── */
+
+  var SEED = {
+    apps: [
+      { id: 'tiktok', name: 'TikTok', mark: 'TT', durationMs: 20 * 60000 },
+      { id: 'ig',     name: 'Instagram', mark: 'IG', durationMs: 15 * 60000 },
+      { id: 'yt',     name: 'YouTube', mark: 'YT', durationMs: 45 * 60000 }
+    ],
+    settings: {
+      messages: ['TIME TO STUDY', 'PUT IT DOWN', 'YOU SAID 20 MINUTES'],
+      submessage: 'Put the phone down. You said you would.',
+      lockoutMs: -1,
+      defaultDurationMs: 20 * 60000,
+      darkBlockScreen: false,
+      vibrate: true,
+      soundEnabled: true,
+      soundName: 'Oxygen',
+      streakNotifications: true,
+      confirmBeforeStart: true
+    },
+    history: [
+      { at: Date.now() - 6 * 864e5, ms: 14 * 60000 },
+      { at: Date.now() - 5 * 864e5, ms: 24 * 60000 },
+      { at: Date.now() - 4 * 864e5, ms: 9 * 60000 },
+      { at: Date.now() - 2 * 864e5, ms: 19 * 60000 },
+      { at: Date.now() - 1 * 864e5, ms: 11 * 60000 },
+      { at: Date.now(),             ms: 28 * 60000 }
+    ]
+  };
+
+  var S = null;      // live state
+  var timer = null;
+
+  function fresh() {
+    return {
+      screen: 'home',
+      apps: JSON.parse(JSON.stringify(SEED.apps)),
+      settings: JSON.parse(JSON.stringify(SEED.settings)),
+      history: JSON.parse(JSON.stringify(SEED.history)),
+      session: null,
+      blocked: null,
+      sheet: null,
+      sheetMs: SEED.settings.defaultDurationMs,
+      sheetUnit: 'min'
+    };
+  }
+
+  /* ── helpers ──────────────────────────────────────────────── */
+
+  var UNIT_MS = { sec: 1000, min: 60000, hour: 3600000 };
+  var UNIT_CAP = { sec: 86400, min: 1440, hour: 24 };
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function clock(ms) {
+    var t = Math.max(0, Math.round(ms / 1000));
+    var h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+    return h > 0 ? h + ':' + pad(m) + ':' + pad(s) : m + ':' + pad(s);
+  }
+
+  function human(ms) {
+    var t = Math.max(0, Math.round(ms / 1000));
+    if (t < 60) return t + 's';
+    var h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+    if (h > 0) return m ? h + 'h ' + m + 'm' : h + 'h';
+    return s ? m + 'm ' + s + 's' : m + 'm';
+  }
+
+  function splitDur(ms) {
+    if (ms > 0 && ms % 3600000 === 0) return { n: ms / 3600000, u: 'hour' };
+    if (ms > 0 && ms % 60000 === 0) return { n: ms / 60000, u: 'min' };
+    if (ms > 0 && ms < 60000) return { n: Math.round(ms / 1000), u: 'sec' };
+    return { n: Math.round(ms / 60000), u: 'min' };
+  }
+
+  function pickMessage() {
+    var list = S.settings.messages.filter(function (m) { return m.trim(); });
+    if (!list.length) return "TIME'S UP";
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  function esc(str) {
+    return String(str).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  var el = function (id) { return document.getElementById(id); };
+
+  /* ── icons ────────────────────────────────────────────────── */
+
+  function svg(paths, size, color, fill) {
+    return '<svg width="' + (size || 15) + '" height="' + (size || 15) + '" viewBox="0 0 24 24" ' +
+      'fill="' + (fill || 'none') + '" stroke="' + (color || '#0A0A0A') + '" stroke-width="2" ' +
+      'stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true">' + paths + '</svg>';
+  }
+  var I = {
+    clock: '<circle cx="12" cy="12" r="9"></circle><polyline points="12 6.5 12 12 16 14" fill="none"></polyline>',
+    gear: '<path d="M10.3 2.2h3.4l.45 2.24 1.72.71 1.87-1.28 2.4 2.4-1.28 1.87.71 1.72 2.24.45v3.4l-2.24.45-.71 1.72 1.28 1.87-2.4 2.4-1.87-1.28-1.72.71-.45 2.24h-3.4l-.45-2.24-1.72-.71-1.87 1.28-2.4-2.4 1.28-1.87-.71-1.72L2.2 13.7v-3.4l2.24-.45.71-1.72L3.87 6.26l2.4-2.4 1.87 1.28 1.72-.71z"></path><circle cx="12" cy="12" r="3.1"></circle>',
+    lock: '<rect x="4" y="10" width="16" height="11"></rect><path d="M8 10V7a4 4 0 018 0v3"></path>',
+    play: '<path d="M6 4l14 8-14 8V4z"></path>',
+    back: '<path d="M20 12H4M10 6l-6 6 6 6"></path>',
+    plus: '<path d="M12 4v16M4 12h16"></path>',
+    chev: '<path d="M9 5l7 7-7 7"></path>',
+    flame: '<path d="M12 2.5s5.5 4.2 5.5 9.5a5.5 5.5 0 11-11 0c0-2.2 1.3-3.9 1.3-3.9s.6 1.6 1.9 2.1c0-3.4 2.3-5.5 2.3-7.7z"></path>',
+    chart: '<path d="M3 21h18"></path><rect x="4" y="13" width="3.6" height="6"></rect><rect x="10.2" y="8" width="3.6" height="11"></rect><rect x="16.4" y="4" width="3.6" height="15"></rect>',
+    shield: '<path d="M12 2.5l8 3v6c0 5-3.5 8.7-8 10-4.5-1.3-8-5-8-10v-6l8-3z"></path><path d="M8.5 12l2.5 2.5 4.5-5"></path>',
+    trash: '<path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13"></path>',
+    sound: '<path d="M4 9h3.5L12 4.5v15L7.5 15H4V9z"></path><path d="M15.5 9.2a4 4 0 010 5.6M18.3 6.4a8 8 0 010 11.2"></path>',
+    check: '<path d="M4 12.5l5.5 5.5L20 6.5"></path>'
+  };
+  var MARK = '<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<rect x="2" y="2" width="20" height="20" fill="#0A0A0A"></rect>' +
+    '<rect x="7" y="7" width="10" height="4" fill="#F2F1EE"></rect>' +
+    '<rect x="7" y="7" width="4" height="10" fill="#F2F1EE"></rect>' +
+    '<rect x="7" y="13" width="10" height="4" fill="#F2F1EE"></rect></svg>';
+
+  function kick(text) {
+    return '<div class="krow"><span class="bar"></span><span class="k">' +
+      esc(String(text).toUpperCase()) + '</span><span class="line"></span></div>';
+  }
+
+  /* ── stats ────────────────────────────────────────────────── */
+
+  function dayStart(ts) { var d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); }
+
+  function stats() {
+    var today = dayStart(Date.now()), days = [], i;
+    for (i = 6; i >= 0; i--) {
+      var day = today - i * 864e5;
+      var mins = S.history.filter(function (h) { return dayStart(h.at) === day; })
+        .reduce(function (a, h) { return a + h.ms / 60000; }, 0);
+      days.push({ day: day, mins: mins, label: 'MTWTFSS'[new Date(day).getDay() === 0 ? 6 : new Date(day).getDay() - 1] });
+    }
+    var streak = 0;
+    for (i = 0; i < 400; i++) {
+      var d = today - i * 864e5;
+      var had = S.history.some(function (h) { return dayStart(h.at) === d; });
+      if (had) streak++; else break;
+    }
+    return {
+      days: days,
+      today: days[6].mins,
+      week: days.reduce(function (a, d) { return a + d.mins; }, 0),
+      streak: streak
+    };
+  }
+
+  /* ── screens ──────────────────────────────────────────────── */
+
+  function screenHome() {
+    var st = stats(), peak = Math.max(1, Math.max.apply(null, st.days.map(function (d) { return d.mins; })));
+    var blockedId = S.blocked ? S.blocked.appId : null;
+
+    var bars = st.days.map(function (d, i) {
+      var isToday = i === 6;
+      var h = d.mins > 0 ? Math.max(4, (d.mins / peak) * 32) : 2;
+      return '<div><b style="height:' + h + 'px;background:' +
+        (d.mins > 0 ? (isToday ? 'var(--ink)' : 'var(--dim)') : 'var(--rule)') + '"></b>' +
+        '<span style="color:' + (isToday ? 'var(--ink)' : 'var(--dimmer)') + '">' + d.label + '</span></div>';
+    }).join('');
+
+    var banner = blockedId ? (
+      '<div class="hard" data-act="unblock" style="background:var(--ink);color:var(--paper);padding:15px;display:flex;gap:12px;align-items:center;margin-bottom:18px;cursor:pointer">' +
+        svg(I.lock, 20, '#F2F1EE') +
+        '<div style="flex:1"><div style="font-size:11.5px;font-weight:700;letter-spacing:.11em">' +
+        esc(S.blocked.label.toUpperCase()) + ' IS BLOCKED</div>' +
+        '<div style="font-size:10px;color:#A3A099;margin-top:4px;line-height:1.45">It stays blocked every time you open it. Tap to lift it.</div></div></div>'
+    ) : '';
+
+    var tiles = S.apps.map(function (a) {
+      var isB = a.id === blockedId;
+      return '<button class="tile' + (isB ? ' blocked' : '') + '" data-act="tile" data-id="' + a.id + '">' +
+        '<div class="well" style="background:' + (isB ? 'var(--ink)' : 'var(--paper)') + '">' +
+        (isB ? svg(I.lock, 21, '#F2F1EE') : esc(a.mark)) + '</div>' +
+        '<div class="grow"></div>' +
+        '<div class="nm">' + esc(a.name) + '</div>' +
+        '<div class="mt">' + (isB
+          ? svg(I.lock, 11, '#F2F1EE') + 'BLOCKED'
+          : svg(I.clock, 11, '#6B6B6B') + human(a.durationMs).toUpperCase()) + '</div></button>';
+    }).join('');
+
+    return '' +
+      '<div class="head">' + MARK +
+        '<div style="flex:1"><div class="name">CUTOFF</div>' +
+        '<div class="k" style="margin-top:3px;letter-spacing:.11em">HARD BLOCK ARMED</div></div>' +
+        '<div class="iconbtn" data-act="settings">' + svg(I.gear, 17) + '</div></div>' +
+      '<div class="scroll">' + banner +
+        '<div class="hard" style="padding:14px;display:flex;gap:14px;margin-bottom:20px">' +
+          '<div style="flex:1"><div class="k" style="margin-bottom:6px">TODAY</div>' +
+            '<div style="font-size:24px;font-weight:700;letter-spacing:-.04em">' + human(st.today * 60000) + '</div>' +
+            '<div style="display:flex;align-items:center;gap:6px;margin-top:8px">' +
+            svg(I.flame, 12, st.streak > 1 ? '#0A0A0A' : '#A3A099') +
+            '<span class="k" style="letter-spacing:.1em">' +
+            (st.streak > 1 ? st.streak + ' DAY STREAK' : 'NO STREAK YET') + '</span></div></div>' +
+          '<div style="width:1px;background:var(--rule)"></div>' +
+          '<div style="flex:1.2"><div class="k" style="margin-bottom:8px;letter-spacing:.1em">' +
+            human(st.week * 60000) + ' THIS WEEK</div><div class="bars">' + bars + '</div></div>' +
+        '</div>' +
+        kick('Your apps') +
+        '<div class="tiles">' + tiles +
+          '<button class="tile add" data-act="addapp">' +
+          '<div style="width:40px;height:40px;border:2px solid var(--ink);display:flex;align-items:center;justify-content:center">' +
+          svg(I.plus, 19) + '</div><div class="k" style="color:var(--ink);letter-spacing:.13em">ADD APP</div></button>' +
+        '</div>' +
+        '<div style="font-size:10.5px;color:var(--dimmer);text-align:center;margin-top:20px">Tap to start &middot; hold to change the timer</div>' +
+      '</div>';
+  }
+
+  function screenRunning() {
+    var s = S.session;
+    var left = Math.max(0, s.endsAt - Date.now());
+    var pct = s.durationMs > 0 ? Math.min(1, 1 - left / s.durationMs) : 0;
+    var hot = left > 0 && left <= 60000;
+
+    return '' +
+      '<div class="head" style="padding-bottom:6px">' +
+        '<div class="krow" style="flex:1;margin:0"><span class="bar"></span>' +
+        '<span class="k">SESSION RUNNING</span><span class="line"></span></div>' +
+        '<div class="iconbtn" data-act="settings">' + svg(I.gear, 17) + '</div></div>' +
+      '<div class="scroll" style="display:flex;flex-direction:column">' +
+        '<div style="flex:1;display:flex;flex-direction:column;justify-content:center">' +
+          '<div class="k" style="font-size:11px;letter-spacing:.2em;margin-bottom:7px">' + esc(s.label.toUpperCase()) + '</div>' +
+          '<div class="clock' + (hot ? ' hot' : '') + '">' + clock(left) + '</div>' +
+          '<div style="font-size:11.5px;color:var(--dim);margin:8px 0 22px">' +
+            (hot ? 'Last minute — wrap it up.' : 'of ' + human(s.durationMs) + ' &middot; left on the clock') + '</div>' +
+          '<div class="prog' + (hot ? ' hot' : '') + '" style="margin-bottom:22px"><i style="width:' + (pct * 100) + '%"></i></div>' +
+          '<div class="hard" style="padding:15px">' +
+            '<div class="k" style="margin-bottom:8px">AT ZERO</div>' +
+            '<div style="font-size:15.5px;font-weight:700">' + esc(s.message) + '</div>' +
+            (S.settings.submessage ? '<div style="font-size:11.5px;color:var(--dim);margin-top:7px;line-height:1.5">' + esc(S.settings.submessage) + '</div>' : '') +
+            '<div style="display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--rule)">' +
+            svg(I.lock, 13, '#6B6B6B') + '<span class="k" style="letter-spacing:.09em;flex:1">' +
+            (S.settings.lockoutMs < 0 ? esc(s.label.toUpperCase()) + ' STAYS BLOCKED UNTIL YOU STOP IT' : 'THIS SCREEN WILL COVER ' + esc(s.label.toUpperCase())) +
+            '</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<button class="btn out" data-act="backtoapp">' + svg(I.back, 14) + 'BACK TO ' + esc(s.label.toUpperCase()) + '</button>' +
+        '<div style="font-size:10.5px;color:var(--dimmer);text-align:center;margin-top:12px">The clock doesn\'t stop. Sit it out.</div>' +
+      '</div>';
+  }
+
+  function screenSettings() {
+    var lock = S.settings.lockoutMs;
+    var mode = lock < 0 ? 'forever' : lock === 0 ? 'off' : 'timed';
+    var d = splitDur(S.settings.defaultDurationMs);
+
+    function toggle(key, title, sub, last) {
+      var on = S.settings[key] !== false && S.settings[key] !== 0;
+      return '<div class="row' + (last ? '" style="border-bottom:none' : '') + '">' +
+        '<div style="flex:1"><div class="t">' + title + '</div><div class="s">' + sub + '</div></div>' +
+        '<div class="tgl' + (on ? ' on' : '') + '" data-act="toggle" data-key="' + key + '"><i></i></div></div>';
+    }
+
+    return '' +
+      '<div class="head"><div class="iconbtn" data-act="back">' + svg(I.back, 16) + '</div>' +
+        '<div class="name" style="flex:1;font-size:13px;letter-spacing:.18em">SETTINGS</div></div>' +
+      '<div class="scroll">' +
+        kick('What it says') +
+        '<div class="hard" style="padding:0 14px;margin-bottom:20px">' +
+          '<div class="row tap" data-act="messages"><div style="flex:1"><div class="t">Messages</div>' +
+          '<div class="s">' + S.settings.messages.length + ' lines &middot; picked at random</div></div>' +
+          svg(I.chev, 16, '#6B6B6B') + '</div></div>' +
+
+        kick('How long it stays blocked') +
+        '<div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px">' +
+          '<button class="chip' + (mode === 'forever' ? ' on' : '') + '" data-act="lock" data-v="-1">UNTIL I STOP IT</button>' +
+          '<button class="chip' + (mode === 'timed' ? ' on' : '') + '" data-act="lock" data-v="900000">FOR A WHILE</button>' +
+          '<button class="chip' + (mode === 'off' ? ' on' : '') + '" data-act="lock" data-v="0">OFF</button>' +
+        '</div>' +
+        (mode === 'forever'
+          ? '<div style="font-size:10.5px;color:var(--dimmer);line-height:1.55;margin-bottom:8px">The block screen has no stop button of its own — you have to come back here and hold to unblock. That\'s the point.</div>'
+          : '') +
+        (mode === 'timed'
+          ? '<div style="font-size:10.5px;color:var(--dim);margin-bottom:8px">Locked for ' + human(lock) + ' after the timer ends.</div>'
+          : '') +
+
+        kick('Sound &amp; feel') +
+        '<div class="hard" style="padding:0 14px;margin-bottom:20px">' +
+          '<div class="row tap" data-act="sounds"><div style="flex:1"><div class="t">Alarm tone</div>' +
+          '<div class="s">' + (S.settings.soundEnabled ? esc(S.settings.soundName) : 'Off — vibration only') + '</div></div>' +
+          svg(I.chev, 16, '#6B6B6B') + '</div>' +
+          toggle('vibrate', 'Vibrate', 'Buzzes at zero, and once at one minute') +
+          toggle('darkBlockScreen', 'Blackout screen', 'Black background instead of paper white', true) +
+        '</div>' +
+
+        kick('Behaviour') +
+        '<div class="hard" style="padding:0 14px;margin-bottom:20px">' +
+          toggle('streakNotifications', 'Streak notifications', 'A nudge when your run of days grows') +
+          toggle('confirmBeforeStart', 'Ask before starting', 'Pick the length each time', true) +
+        '</div>' +
+
+        kick('Default timer for new apps') +
+        '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin-bottom:14px">' +
+          d.n + ' <span style="font-size:11px;letter-spacing:.14em;color:var(--dim)">' + d.u.toUpperCase() + '</span></div>' +
+
+        kick('Setup') +
+        '<div class="hard" style="padding:0 14px;margin-bottom:20px">' +
+          '<div class="row tap" data-act="about"><div style="flex:1"><div class="t">About</div>' +
+          '<div class="s">Version 1.3.0 &middot; contact &middot; privacy</div></div>' +
+          svg(I.chev, 16, '#6B6B6B') + '</div></div>' +
+      '</div>';
+  }
+
+  function screenMessages() {
+    var rows = S.settings.messages.map(function (m, i) {
+      return '<div class="row"><span class="k" style="width:19px">' + pad(i + 1) + '</span>' +
+        '<span class="t" style="flex:1">' + esc(m) + '</span>' +
+        '<span data-act="delmsg" data-i="' + i + '" style="cursor:pointer">' + svg(I.trash, 15, '#C4231A') + '</span></div>';
+    }).join('');
+
+    var ideas = ['THAT’S ENOUGH', 'GO DO THE THING', 'STOP SCROLLING', 'BACK TO WORK', 'FUTURE YOU IS WATCHING']
+      .filter(function (x) { return S.settings.messages.indexOf(x) === -1; })
+      .map(function (x) {
+        return '<div data-act="addmsg" data-v="' + esc(x) + '" style="border:2px dashed var(--ink);padding:11px 12px;font-size:11.5px;font-weight:700;display:flex;gap:9px;align-items:center;cursor:pointer">' +
+          svg(I.plus, 13, '#6B6B6B') + esc(x) + '</div>';
+      }).join('');
+
+    return '' +
+      '<div class="head"><div class="iconbtn" data-act="back">' + svg(I.back, 16) + '</div>' +
+        '<div class="name" style="flex:1;font-size:13px;letter-spacing:.18em">MESSAGES</div></div>' +
+      '<div class="scroll">' +
+        kick(S.settings.messages.length + ' lines, picked at random') +
+        '<div style="font-size:11.5px;color:var(--dim);line-height:1.6;margin-bottom:16px">A different one shows each time the timer runs out.</div>' +
+        '<div class="hard" style="padding:0 14px;margin-bottom:22px">' + rows + '</div>' +
+        (ideas ? kick('Or steal one of these') + '<div style="display:flex;flex-direction:column;gap:9px">' + ideas + '</div>' : '') +
+      '</div>';
+  }
+
+  function screenSounds() {
+    var tones = ['Default alarm', 'Oxygen', 'Argon', 'Helium', 'Beryllium', 'Krypton'];
+    var rows = tones.map(function (t) {
+      var on = S.settings.soundName === t;
+      return '<div class="row tap" data-act="tone" data-v="' + esc(t) + '">' +
+        '<span style="width:18px;height:18px;border:2px solid var(--ink);flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:' +
+        (on ? 'var(--ink)' : 'transparent') + '">' + (on ? svg(I.check, 10, '#F2F1EE') : '') + '</span>' +
+        '<span class="t" style="flex:1">' + esc(t) + '</span>' +
+        '<span class="k">' + (t === 'Default alarm' ? 'SYSTEM' : 'ALARM') + '</span></div>';
+    }).join('');
+
+    return '' +
+      '<div class="head"><div class="iconbtn" data-act="back">' + svg(I.back, 16) + '</div>' +
+        '<div class="name" style="flex:1;font-size:13px;letter-spacing:.18em">SOUND</div></div>' +
+      '<div class="scroll">' +
+        '<div class="hard" style="padding:0 14px;margin-bottom:20px">' +
+          '<div class="row"><div style="flex:1"><div class="t">Play a sound at zero</div>' +
+          '<div class="s">On top of the vibration</div></div>' +
+          '<div class="tgl' + (S.settings.soundEnabled ? ' on' : '') + '" data-act="toggle" data-key="soundEnabled"><i></i></div></div></div>' +
+        kick('Current') +
+        '<div class="hard" style="padding:14px;margin-bottom:20px;display:flex;align-items:center;gap:10px">' +
+          svg(I.sound, 17) + '<span style="flex:1;font-size:13px;font-weight:700">' +
+          esc(S.settings.soundEnabled ? S.settings.soundName : 'Off') + '</span></div>' +
+        '<div class="hard" style="padding:0 14px">' + rows + '</div>' +
+      '</div>';
+  }
+
+  function screenAbout() {
+    var st = stats();
+    var total = S.history.reduce(function (a, h) { return a + h.ms; }, 0);
+    return '' +
+      '<div class="head"><div class="iconbtn" data-act="back">' + svg(I.back, 16) + '</div>' +
+        '<div class="name" style="flex:1;font-size:13px;letter-spacing:.18em">ABOUT</div></div>' +
+      '<div class="scroll">' +
+        '<div class="hard" style="padding:22px;display:flex;flex-direction:column;align-items:center;margin-bottom:20px">' +
+          '<svg width="48" height="48" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" fill="#0A0A0A"></rect>' +
+          '<rect x="7" y="7" width="10" height="4" fill="#F2F1EE"></rect><rect x="7" y="7" width="4" height="10" fill="#F2F1EE"></rect>' +
+          '<rect x="7" y="13" width="10" height="4" fill="#F2F1EE"></rect></svg>' +
+          '<div style="font-size:18px;font-weight:700;letter-spacing:.3em;margin-top:14px;padding-left:.3em">CUTOFF</div>' +
+          '<div class="k" style="margin-top:7px;letter-spacing:.18em">VERSION 1.3.0 &middot; ANDROID</div></div>' +
+
+        '<div style="font-size:12px;color:var(--dim);line-height:1.65;margin-bottom:22px">' +
+          'A timer for the apps that eat your evening. Tap one, it opens for real, and when the clock hits zero your own screen lands on top of it.</div>' +
+
+        kick('Since you installed it') +
+        '<div class="hard" style="padding:16px;display:flex;margin-bottom:22px">' +
+          '<div style="flex:1;text-align:center"><div style="font-size:19px;font-weight:700">' + S.history.length + '</div>' +
+          '<div class="k" style="margin-top:5px;letter-spacing:.1em">SESSIONS</div></div>' +
+          '<div style="width:1px;background:var(--rule)"></div>' +
+          '<div style="flex:1;text-align:center"><div style="font-size:19px;font-weight:700">' + human(total) + '</div>' +
+          '<div class="k" style="margin-top:5px;letter-spacing:.1em">TOTAL</div></div>' +
+          '<div style="width:1px;background:var(--rule)"></div>' +
+          '<div style="flex:1;text-align:center"><div style="font-size:19px;font-weight:700">' + st.streak + '</div>' +
+          '<div class="k" style="margin-top:5px;letter-spacing:.1em">DAY STREAK</div></div></div>' +
+
+        kick('Something broken? An idea?') +
+        '<div class="hard" style="padding:15px;margin-bottom:22px">' +
+          '<div class="k" style="margin-bottom:8px">CONTACT</div>' +
+          '<a href="mailto:nauf4n2011@gmail.com?subject=Cutoff%201.3.0%20feedback" style="font-size:13px;font-weight:700;color:var(--ink)">nauf4n2011@gmail.com</a></div>' +
+
+        kick('Where your data goes') +
+        '<div class="hard" style="padding:16px;display:flex;gap:12px;margin-bottom:22px">' +
+          svg(I.shield, 20) +
+          '<div style="flex:1"><div style="font-size:12.5px;font-weight:700;margin-bottom:6px">Nowhere</div>' +
+          '<div style="font-size:11px;color:var(--dim);line-height:1.55">No server, no account, no analytics — the app has no networking code at all.</div></div></div>' +
+
+        kick("What it can't do") +
+        '<div class="hard" style="padding:16px">' +
+          '<div style="font-size:11px;color:var(--dim);line-height:1.6">No app on a normal phone can force-quit another app — not this one, not the paid ones. What it does is cover the app and send you home, which ends the session just as well.</div></div>' +
+        '<div style="height:20px"></div>' +
+      '</div>';
+  }
+
+  function screenApps() {
+    var rows = S.apps.map(function (a, i) {
+      return '<div class="row"><span class="well" style="width:36px;height:36px;font-size:12px">' + esc(a.mark) + '</span>' +
+        '<div style="flex:1"><div class="t">' + esc(a.name) + '</div>' +
+        '<div class="s">' + human(a.durationMs).toUpperCase() + ' PER SESSION</div></div>' +
+        '<span data-act="delapp" data-i="' + i + '" style="cursor:pointer">' + svg(I.trash, 15, '#C4231A') + '</span></div>';
+    }).join('');
+    return '' +
+      '<div class="head"><div class="iconbtn" data-act="back">' + svg(I.back, 16) + '</div>' +
+        '<div class="name" style="flex:1;font-size:13px;letter-spacing:.18em">APPS</div></div>' +
+      '<div class="scroll">' + kick(S.apps.length + ' in the grid') +
+        '<div class="hard" style="padding:0 14px;margin-bottom:22px">' + rows + '</div>' +
+        '<div style="font-size:11.5px;color:var(--dim);line-height:1.6">Cutoff launches the real app by its Android package name — no browser, no copy of it.</div>' +
+      '</div>';
+  }
+
+  /* ── sheet ────────────────────────────────────────────────── */
+
+  function renderSheet() {
+    var sheet = el('sheet'), scrim = el('scrim');
+    if (!S.sheet) { sheet.className = ''; scrim.className = ''; sheet.innerHTML = ''; return; }
+
+    var app = S.apps.filter(function (a) { return a.id === S.sheet; })[0];
+    var d = splitDur(S.sheetMs);
+    var units = ['sec', 'min', 'hour'].map(function (u) {
+      return '<button class="chip' + (S.sheetUnit === u ? ' on' : '') + '" data-act="unit" data-v="' + u + '">' + u.toUpperCase() + '</button>';
+    }).join('');
+    var chips = [30000, 60000, 300000, 900000, 1200000, 1800000, 2700000].map(function (ms) {
+      return '<button class="chip' + (S.sheetMs === ms ? ' on' : '') + '" data-act="quick" data-v="' + ms + '">' + human(ms) + '</button>';
+    }).join('');
+
+    scrim.className = 'on';
+    sheet.className = 'on';
+    sheet.innerHTML =
+      '<div style="display:flex;align-items:center;margin-bottom:18px">' +
+        '<div class="name" style="flex:1;font-size:12.5px;font-weight:700;letter-spacing:.18em">START ' + esc(app.name.toUpperCase()) + '</div>' +
+        '<div class="iconbtn" data-act="closesheet" style="width:34px;height:34px">' +
+        svg('<path d="M5 5l14 14M19 5L5 19"></path>', 15) + '</div></div>' +
+      '<div class="k" style="margin-bottom:12px">HOW LONG?</div>' +
+      '<div class="numrow"><div class="numbox"><input id="durInput" type="text" inputmode="decimal" value="' + d.n + '"></div>' +
+      '<div class="units">' + units + '</div></div>' +
+      '<div class="k" id="durOut" style="margin:10px 0 16px;letter-spacing:.1em">= ' + human(S.sheetMs).toUpperCase() + '</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px">' + chips + '</div>' +
+      '<div class="hard" style="padding:14px;margin-bottom:18px">' +
+        '<div class="k" style="margin-bottom:7px">WHEN TIME RUNS OUT</div>' +
+        '<div style="font-size:14.5px;font-weight:700">' + esc(S.settings.messages[0]) +
+        (S.settings.messages.length > 1 ? '  <span style="font-size:10px;color:var(--dim)">(+' + (S.settings.messages.length - 1) + ' more)</span>' : '') + '</div>' +
+        (S.settings.lockoutMs !== 0
+          ? '<div style="font-size:10.5px;color:var(--dim);margin-top:8px;line-height:1.5">' +
+            (S.settings.lockoutMs < 0
+              ? '…then ' + esc(app.name) + ' stays blocked every time you open it, until you stop it here.'
+              : '…then ' + esc(app.name) + ' stays locked for ' + human(S.settings.lockoutMs) + '.') + '</div>'
+          : '') +
+      '</div>' +
+      '<button class="btn" data-act="go">' + svg(I.play, 14, '#F2F1EE') + 'START ' + human(S.sheetMs).toUpperCase() + '</button>';
+
+    var input = el('durInput');
+    input.addEventListener('input', function () {
+      var cleaned = input.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+      if (cleaned !== input.value) input.value = cleaned;
+      var n = parseFloat(cleaned) || 0;
+      var capped = Math.min(n, UNIT_CAP[S.sheetUnit]);
+      S.sheetMs = Math.round(capped * UNIT_MS[S.sheetUnit]);
+      var over = n > UNIT_CAP[S.sheetUnit];
+      input.style.color = over ? 'var(--danger)' : 'var(--ink)';
+      el('durOut').textContent = over
+        ? 'MAX ' + UNIT_CAP[S.sheetUnit] + ' ' + S.sheetUnit.toUpperCase()
+        : '= ' + human(S.sheetMs).toUpperCase();
+      var go = sheet.querySelector('[data-act="go"]');
+      if (go) go.innerHTML = svg(I.play, 14, '#F2F1EE') + 'START ' + human(S.sheetMs).toUpperCase();
+    });
+  }
+
+  /* ── block screen ─────────────────────────────────────────── */
+
+  function renderBlock() {
+    var b = el('block');
+    if (!S.blocked || S.screen !== 'blockfull') { b.className = S.settings.darkBlockScreen ? 'dark' : ''; b.innerHTML = ''; return; }
+    var dark = S.settings.darkBlockScreen;
+    b.className = 'on' + (dark ? ' dark' : '');
+    b.innerHTML =
+      '<div style="width:40px;height:3px;background:' + (dark ? '#F5F4F1' : 'var(--ink)') + '"></div>' +
+      '<div class="k" style="letter-spacing:.26em;margin-top:12px">CUTOFF / SESSION ENDED</div>' +
+      '<div style="flex:1;display:flex;flex-direction:column;justify-content:center">' +
+        '<div class="bighead">' + esc(S.blocked.message) + '</div>' +
+        (S.settings.submessage ? '<div class="sub">' + esc(S.settings.submessage) + '</div>' : '') +
+        '<div class="hr" style="margin-top:26px"></div>' +
+        '<div class="k" style="letter-spacing:.13em;margin-top:12px">' + esc(S.blocked.label.toUpperCase()) + ' &nbsp;&middot;&nbsp; ' + human(S.blocked.spentMs).toUpperCase() + ' SPENT</div>' +
+        (S.settings.lockoutMs !== 0 ? '<div class="k" style="letter-spacing:.13em;margin-top:6px">' +
+          (S.settings.lockoutMs < 0 ? 'BLOCKED UNTIL YOU STOP IT IN CUTOFF' : 'LOCKED FOR ' + human(S.settings.lockoutMs).toUpperCase()) + '</div>' : '') +
+        '<div class="hr" style="margin-top:12px"></div>' +
+      '</div>' +
+      '<button class="btn" data-act="closeblock">CLOSE</button>' +
+      '<div class="k" style="text-align:center;letter-spacing:.13em;margin-top:8px">STILL BLOCKED &middot; OPEN CUTOFF TO STOP</div>';
+  }
+
+  /* ── render ───────────────────────────────────────────────── */
+
+  function render() {
+    var v = el('view'), html;
+    if (S.screen === 'settings') html = screenSettings();
+    else if (S.screen === 'messages') html = screenMessages();
+    else if (S.screen === 'sounds') html = screenSounds();
+    else if (S.screen === 'about') html = screenAbout();
+    else if (S.screen === 'apps') html = screenApps();
+    else if (S.session) html = screenRunning();
+    else html = screenHome();
+    v.innerHTML = html;
+    renderSheet();
+    renderBlock();
+  }
+
+  /* ── actions ──────────────────────────────────────────────── */
+
+  function startSession(app, ms) {
+    var msg = pickMessage();
+    S.session = { appId: app.id, label: app.name, durationMs: ms, endsAt: Date.now() + ms, message: msg };
+    S.sheet = null;
+    S.screen = 'home';
+    render();
+  }
+
+  function fire() {
+    var s = S.session;
+    if (!s) return;
+    S.history.push({ at: Date.now(), ms: s.durationMs });
+    S.blocked = S.settings.lockoutMs === 0 ? null : { appId: s.appId, label: s.label, message: s.message, spentMs: s.durationMs };
+    S.session = null;
+    S.screen = S.blocked ? 'blockfull' : 'home';
+    if (!S.blocked) { S.screen = 'home'; }
+    render();
+  }
+
+  document.addEventListener('click', function (e) {
+    var node = e.target.closest ? e.target.closest('[data-act]') : null;
+    if (!node) return;
+    var act = node.getAttribute('data-act');
+
+    if (act === 'tile') {
+      var id = node.getAttribute('data-id');
+      var app = S.apps.filter(function (a) { return a.id === id; })[0];
+      if (S.blocked && S.blocked.appId === id) { doUnblock(); return; }
+      if (S.settings.confirmBeforeStart) {
+        S.sheet = id; S.sheetMs = app.durationMs;
+        S.sheetUnit = splitDur(app.durationMs).u;
+        render();
+      } else startSession(app, app.durationMs);
+    }
+    else if (act === 'closesheet') { S.sheet = null; render(); }
+    else if (act === 'unit') { S.sheetUnit = node.getAttribute('data-v'); render(); }
+    else if (act === 'quick') { S.sheetMs = parseInt(node.getAttribute('data-v'), 10); S.sheetUnit = splitDur(S.sheetMs).u; render(); }
+    else if (act === 'go') {
+      var a2 = S.apps.filter(function (a) { return a.id === S.sheet; })[0];
+      startSession(a2, S.sheetMs);
+    }
+    else if (act === 'settings') { S.screen = 'settings'; render(); }
+    else if (act === 'back') { S.screen = (S.screen === 'settings') ? 'home' : 'settings'; render(); }
+    else if (act === 'messages') { S.screen = 'messages'; render(); }
+    else if (act === 'sounds') { S.screen = 'sounds'; render(); }
+    else if (act === 'about') { S.screen = 'about'; render(); }
+    else if (act === 'addapp') { S.screen = 'apps'; render(); }
+    else if (act === 'toggle') {
+      var k = node.getAttribute('data-key');
+      S.settings[k] = !(S.settings[k] !== false && S.settings[k] !== 0);
+      render();
+    }
+    else if (act === 'lock') { S.settings.lockoutMs = parseInt(node.getAttribute('data-v'), 10); render(); }
+    else if (act === 'tone') { S.settings.soundName = node.getAttribute('data-v'); S.settings.soundEnabled = true; render(); }
+    else if (act === 'delmsg') {
+      var i = parseInt(node.getAttribute('data-i'), 10);
+      if (S.settings.messages.length > 1) S.settings.messages.splice(i, 1);
+      render();
+    }
+    else if (act === 'addmsg') { S.settings.messages.push(node.getAttribute('data-v')); render(); }
+    else if (act === 'delapp') {
+      var j = parseInt(node.getAttribute('data-i'), 10);
+      S.apps.splice(j, 1); render();
+    }
+    else if (act === 'closeblock') { S.screen = 'home'; render(); }
+    else if (act === 'unblock') { doUnblock(); }
+    else if (act === 'backtoapp') { /* nothing to go back to in a browser */ }
+  });
+
+  function doUnblock() {
+    if (!S.blocked) return;
+    if (window.confirm(S.blocked.label + ' is blocked.\n\nIn the app this takes a two-second press-and-hold. Lift it?')) {
+      S.blocked = null;
+      S.screen = 'home';
+      render();
+    }
+  }
+
+  /* ── tick ─────────────────────────────────────────────────── */
+
+  function tick() {
+    var now = new Date();
+    el('clockNow').textContent = now.getHours() + ':' + pad(now.getMinutes());
+    if (S.session) {
+      if (Date.now() >= S.session.endsAt) fire();
+      else if (S.screen === 'home') render();
+    }
+  }
+
+  /* ── desk controls ────────────────────────────────────────── */
+
+  el('dSkip').addEventListener('click', function () {
+    if (!S.session) { alert('Start a session first — tap a tile.'); return; }
+    S.session.endsAt = Date.now() + 8000;
+    render();
+  });
+
+  el('dZero').addEventListener('click', function () {
+    if (!S.session) {
+      var app = S.apps[0];
+      S.session = { appId: app.id, label: app.name, durationMs: 20 * 60000, endsAt: Date.now(), message: pickMessage() };
+    } else S.session.endsAt = Date.now();
+    fire();
+  });
+
+  el('dUnblock').addEventListener('click', function () {
+    if (!S.blocked) { alert('Nothing is blocked right now.'); return; }
+    S.blocked = null; S.screen = 'home'; render();
+  });
+
+  el('dReplay').addEventListener('click', function () {
+    var sp = el('splash');
+    sp.className = '';
+    sp.style.transform = 'none';
+    void sp.offsetWidth;
+    setTimeout(function () { sp.className = 'gone'; }, 900);
+  });
+
+  el('dReset').addEventListener('click', function () {
+    S = fresh();
+    render();
+  });
+
+  /* ── boot ─────────────────────────────────────────────────── */
+
+  S = fresh();
+  render();
+  timer = setInterval(tick, 500);
+  tick();
+  setTimeout(function () { el('splash').className = 'gone'; }, 950);
+})();
+</script>
+</body>
+</html>
