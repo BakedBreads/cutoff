@@ -8,13 +8,13 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 
@@ -57,6 +57,13 @@ class BlockerService : Service() {
     private var lastWidgetKey = ""
     /** When the last tick ran, so a pause can absorb exactly that much time. */
     private var lastTickAt = 0L
+    /**
+     * Last package the system actually reported. Usage events only fire when
+     * the foreground app CHANGES, so a quiet query means "still whatever it
+     * was", not "nothing is running" — holding it here is what stops the timer
+     * pausing itself a few seconds into every session.
+     */
+    private var lastKnownForeground: String? = null
 
     private val tick = object : Runnable {
         override fun run() {
@@ -91,6 +98,11 @@ class BlockerService : Service() {
             else -> {
                 createChannel()
                 lastTickAt = System.currentTimeMillis()
+                // We just sent the user into this app, so seed the state with it
+                // rather than waiting for the first usage event to arrive.
+                if (Session.isRunning(this)) {
+                    lastKnownForeground = Session.blockedPackage(this)
+                }
                 goForeground(buildNotification(Session.remainingMs(this)))
                 handler.removeCallbacks(tick)
                 handler.post(tick)
@@ -114,7 +126,10 @@ class BlockerService : Service() {
      */
     private fun syncWidget(remaining: Long) {
         val key = when {
-            Session.isRunning(this) -> "run:" + (remaining / 1000L)
+            // Pausing has to be part of the key, or the widget keeps showing a
+            // live countdown that has actually stopped.
+            Session.isRunning(this) ->
+                "run:" + (remaining / 1000L) + ":" + Session.isPaused(this)
             Session.inLockout(this) -> "lock:" + Session.isIndefinite(this)
             else -> "idle"
         }
@@ -180,8 +195,14 @@ class BlockerService : Service() {
         }
 
         val target = Session.blockedPackage(this)
-        val current = Usage.foregroundPackage(this)
-        val inTarget = current != null && current == target
+
+        // Only overwrite what we know when the system actually tells us something.
+        Usage.foregroundPackage(this)?.let { lastKnownForeground = it }
+        val current = lastKnownForeground
+
+        // Until the system has reported anything at all, assume the session is
+        // live — the app was just launched, so that is the honest default.
+        val inTarget = current == null || current == target
         Session.setPaused(this, !inTarget)
 
         if (!inTarget && previous > 0L) {
@@ -195,18 +216,7 @@ class BlockerService : Service() {
     private fun warnOneMinute() {
         Session.markWarned(this)
         if (!Session.shouldVibrate(this)) return
-        try {
-            val pattern = longArrayOf(0, 90, 80, 90)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-                vm.defaultVibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
-            } else {
-                @Suppress("DEPRECATION")
-                val v = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                v.vibrate(VibrationEffect.createWaveform(pattern, -1))
-            }
-        } catch (_: Exception) {
-        }
+        Buzz.pattern(this, longArrayOf(0, 90, 80, 90))
     }
 
     private fun fire() {
@@ -351,6 +361,7 @@ class BlockerService : Service() {
         val elapsed = (total - remaining).coerceIn(0L, total)
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .apply { appIconBitmap()?.let { setLargeIcon(it) } }
             .setContentTitle(
                 when {
                     running && Session.isPaused(this) -> "$label · paused"
@@ -407,6 +418,29 @@ class BlockerService : Service() {
         }
 
         return builder.build()
+    }
+
+    /**
+     * The launcher icon of whatever app is being timed, so the notification
+     * carries the thing it is about rather than a generic mark.
+     */
+    private fun appIconBitmap(): Bitmap? {
+        val pkg = Session.blockedPackage(this)
+        if (pkg.isEmpty()) return null
+        return try {
+            val drawable = packageManager.getApplicationIcon(pkg)
+            if (drawable is BitmapDrawable && drawable.bitmap != null) {
+                Bitmap.createScaledBitmap(drawable.bitmap, 192, 192, true)
+            } else {
+                val bmp = Bitmap.createBitmap(192, 192, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bmp)
+                drawable.setBounds(0, 0, 192, 192)
+                drawable.draw(canvas)
+                bmp
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun humanMs(ms: Long): String {

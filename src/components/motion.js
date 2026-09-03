@@ -58,12 +58,18 @@ export function ScreenTransition({ routeKey, depth, children }) {
   // so during the render where routeKey changes it still has the old screen.
   const lastChildren = useRef(children);
 
+  const firstRun = useRef(true);
+
   if (key !== routeKey) {
     const forward = depth >= prevDepth.current;
     prevDepth.current = depth;
     setDir(forward ? 1 : -1);
     setOutgoing(lastChildren.current);
     setKey(routeKey);
+    // Rewind here, not in the effect. Effects run *after* paint, so leaving it
+    // until then let the incoming screen draw one frame at its final position
+    // before snapping off-stage — the flicker at the start of every push.
+    anim.setValue(0);
   }
 
   useEffect(() => {
@@ -71,7 +77,14 @@ export function ScreenTransition({ routeKey, depth, children }) {
   });
 
   useEffect(() => {
-    anim.setValue(0);
+    // The very first screen is revealed by the splash wipe; sliding it in as
+    // well would be two entrances stacked on top of each other.
+    if (firstRun.current) {
+      firstRun.current = false;
+      anim.setValue(1);
+      return undefined;
+    }
+
     const run = Animated.timing(anim, {
       toValue: 1,
       duration: 400,

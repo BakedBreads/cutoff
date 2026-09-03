@@ -10,9 +10,6 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import android.provider.Settings
 import android.util.TypedValue
 import android.view.Gravity
@@ -356,21 +353,6 @@ object Overlay {
     }
 
     private fun buzz(ctx: Context) {
-        try {
-            val pattern = longArrayOf(0, 120, 90, 120, 90, 260)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val vm = ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-                vm.defaultVibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
-            } else {
-                @Suppress("DEPRECATION")
-                val v = ctx.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    v.vibrate(VibrationEffect.createWaveform(pattern, -1))
-                } else {
-                    @Suppress("DEPRECATION") v.vibrate(pattern, -1)
-                }
-            }
-        } catch (_: Exception) {
-        }
+        Buzz.pattern(ctx, longArrayOf(0, 120, 90, 120, 90, 260))
     }
 }

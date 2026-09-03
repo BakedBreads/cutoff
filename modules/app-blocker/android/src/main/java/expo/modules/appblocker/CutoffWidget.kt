@@ -45,10 +45,18 @@ class CutoffWidget : AppWidgetProvider() {
 
             when {
                 running -> {
+                    val paused = Session.isPaused(context)
                     views.setTextViewText(R.id.widget_kicker, label.uppercase())
                     views.setTextViewText(R.id.widget_value, fmt(Session.remainingMs(context)))
-                    views.setTextViewText(R.id.widget_note, "LEFT ON THE CLOCK")
-                    views.setViewVisibility(R.id.widget_lock, View.GONE)
+                    views.setTextViewText(
+                        R.id.widget_note,
+                        if (paused) "PAUSED - OPEN $label".uppercase() else "LEFT ON THE CLOCK"
+                    )
+                    views.setTextViewText(R.id.widget_lock, "PAUSED")
+                    views.setViewVisibility(
+                        R.id.widget_lock,
+                        if (paused) View.VISIBLE else View.GONE
+                    )
                 }
                 blocked -> {
                     views.setTextViewText(R.id.widget_kicker, label.uppercase())

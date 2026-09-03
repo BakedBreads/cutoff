@@ -9,7 +9,7 @@ import { Screen, Hard, Button, Kicker, Body } from '../components/ui';
 import { Enter } from '../components/motion';
 import { Wordmark, IconShield, IconAlert, IconChart, IconTrash } from '../icons';
 
-const VERSION = '1.7.0';
+const VERSION = '1.8.0';
 
 export default function AboutScreen({ history, apps, onBack }) {
   const stats = summarise(history);

@@ -36,13 +36,21 @@ object Usage {
         }
     }
 
-    /** Package name of whatever is on screen right now, or null if we can't tell. */
+    /**
+     * Package of whatever is on screen, or null when the system has nothing to
+     * say. Null means "no new information", NOT "no app is in front" — events
+     * are only emitted when the foreground app CHANGES, so sitting in one app
+     * produces none at all. Callers must treat null as "unchanged".
+     *
+     * Two minutes is ample: this is polled every second or so, and anything
+     * older is already reflected in the caller's cached value.
+     */
     fun foregroundPackage(context: Context): String? {
         if (!hasAccess(context)) return null
         return try {
             val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val end = System.currentTimeMillis()
-            val events = usm.queryEvents(end - 15_000L, end)
+            val events = usm.queryEvents(end - 120_000L, end)
             val event = UsageEvents.Event()
             var last: String? = null
             while (events.hasNextEvent()) {
