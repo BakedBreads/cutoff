@@ -73,7 +73,27 @@ body {
   color: var(--dim);
 }
 
-#view { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+#view { flex: 1; position: relative; overflow: hidden; }
+
+/* A real page push: the arriving screen travels the full width while the one
+   it replaces slides a quarter as far and dims underneath. The gap between the
+   two speeds is what reads as depth. */
+.page {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+}
+.page.enter { animation: pushIn .4s cubic-bezier(.32,.72,0,1) both; }
+.page.exit  { animation: pushOut .4s cubic-bezier(.32,.72,0,1) both; pointer-events: none; }
+.page.enter.back { animation-name: pushInBack; }
+.page.exit.back  { animation-name: pushOutBack; }
+
+@keyframes pushIn      { from { transform: translateX(100%) }  to { transform: none } }
+@keyframes pushOut     { from { transform: none; opacity: 1 }  to { transform: translateX(-25%); opacity: .35 } }
+@keyframes pushInBack  { from { transform: translateX(-100%) } to { transform: none } }
+@keyframes pushOutBack { from { transform: none; opacity: 1 }  to { transform: translateX(25%); opacity: .35 } }
 
 .scroll { flex: 1; overflow-y: auto; padding: 4px 18px 22px; }
 .scroll::-webkit-scrollbar { width: 0; }
@@ -613,7 +633,7 @@ body {
           ? '<div style="font-size:10.5px;color:var(--dim);margin-bottom:8px">Locked for ' + human(lock) + ' after the timer ends.</div>'
           : '') +
 
-        kick('Sound &amp; feel') +
+        kick('Sound & feel') +
         '<div class="hard" style="padding:0 14px;margin-bottom:20px">' +
           '<div class="row tap" data-act="sounds"><div style="flex:1"><div class="t">Alarm tone</div>' +
           '<div class="s">' + (S.settings.soundEnabled ? esc(S.settings.soundName) : 'Off — vibration only') + '</div></div>' +
@@ -775,6 +795,12 @@ body {
           '<div style="flex:1"><div style="font-size:12.5px;font-weight:700;margin-bottom:6px">Nowhere</div>' +
           '<div style="font-size:11px;color:var(--dim);line-height:1.55">No server, no account, no analytics — the app has no networking code at all.</div></div></div>' +
 
+        kick('Had enough?') +
+        '<div style="font-size:11.5px;color:var(--dim);line-height:1.6;margin-bottom:14px">' +
+          'Uninstalling takes everything with it — your apps, your wording and the session log all live on this phone and nowhere else.</div>' +
+        '<button class="btn out" data-act="uninstall" style="margin-bottom:22px">' +
+          svg(I.trash, 14, '#0A0A0A') + 'UNINSTALL CUTOFF</button>' +
+
         kick("What it can't do") +
         '<div class="hard" style="padding:16px">' +
           '<div style="font-size:11px;color:var(--dim);line-height:1.6">No app on a normal phone can force-quit another app — not this one, not the paid ones. What it does is cover the app and send you home, which ends the session just as well.</div></div>' +
@@ -836,7 +862,11 @@ body {
               : '…then ' + esc(app.name) + ' stays locked for ' + human(S.settings.lockoutMs) + '.') + '</div>'
           : '') +
       '</div>' +
-      '<button class="btn" data-act="go">' + svg(I.play, 14, '#F2F1EE') + 'START ' + human(S.sheetMs).toUpperCase() + '</button>';
+      '<button class="btn" data-act="go">' + svg(I.play, 14, '#F2F1EE') + 'START ' + human(S.sheetMs).toUpperCase() + '</button>' +
+      '<div style="display:flex;gap:9px">' +
+        '<button class="btn out sm" data-act="editapp" style="flex:1">EDIT</button>' +
+        '<button class="btn out sm" data-act="removeapp" style="flex:1">' + svg(I.trash, 13, '#0A0A0A') + 'REMOVE</button>' +
+      '</div>';
 
     var input = el('durInput');
     input.addEventListener('input', function () {
@@ -880,6 +910,10 @@ body {
 
   /* ── render ───────────────────────────────────────────────── */
 
+  // How deep each screen sits, so the push knows which way to travel.
+  var DEPTH = { home: 0, settings: 1, messages: 2, sounds: 2, about: 2, apps: 2 };
+  var lastScreen = null;
+
   function render() {
     var v = el('view'), html;
     if (S.screen === 'settings') html = screenSettings();
@@ -889,7 +923,30 @@ body {
     else if (S.screen === 'apps') html = screenApps();
     else if (S.session) html = screenRunning();
     else html = screenHome();
-    v.innerHTML = html;
+    var changed = lastScreen !== null && lastScreen !== S.screen;
+    var back = changed && (DEPTH[S.screen] || 0) < (DEPTH[lastScreen] || 0);
+
+    if (!changed) {
+      // Same screen re-rendering (the countdown ticks): swap in place, no motion.
+      var live = v.querySelector('.page:not(.exit)');
+      if (live) live.innerHTML = html;
+      else v.innerHTML = '<div class="page">' + html + '</div>';
+    } else {
+      var old = v.querySelector('.page:not(.exit)');
+      if (old) {
+        old.className = 'page exit' + (back ? ' back' : '');
+        old.addEventListener('animationend', function () {
+          if (old.parentNode) old.parentNode.removeChild(old);
+        });
+      }
+      var next = document.createElement('div');
+      next.className = 'page enter' + (back ? ' back' : '');
+      next.innerHTML = html;
+      v.appendChild(next);
+      next.addEventListener('animationend', function () { next.className = 'page'; });
+    }
+    lastScreen = S.screen;
+
     wireInputs();
     renderSheet();
     renderBlock();
@@ -977,6 +1034,15 @@ body {
       } else startSession(app, app.durationMs);
     }
     else if (act === 'closesheet') { S.sheet = null; render(); }
+    else if (act === 'editapp') { S.sheet = null; S.screen = 'apps'; render(); }
+    else if (act === 'removeapp') {
+      var target = S.apps.filter(function (a) { return a.id === S.sheet; })[0];
+      if (target && confirm('Remove ' + target.name + ' from the grid?\n\nThe app itself stays on your phone.')) {
+        S.apps = S.apps.filter(function (a) { return a.id !== target.id; });
+        S.sheet = null;
+        render();
+      }
+    }
     else if (act === 'unit') { S.sheetUnit = node.getAttribute('data-v'); render(); }
     else if (act === 'quick') { S.sheetMs = parseInt(node.getAttribute('data-v'), 10); S.sheetUnit = splitDur(S.sheetMs).u; render(); }
     else if (act === 'go') {
@@ -992,6 +1058,9 @@ body {
     else if (act === 'messages') { S.screen = 'messages'; render(); }
     else if (act === 'sounds') { S.screen = 'sounds'; render(); }
     else if (act === 'about') { S.screen = 'about'; render(); }
+    else if (act === 'uninstall') {
+      alert('On the phone this opens Android\u2019s own uninstall prompt, which names the app "Cutoff" and asks you to confirm.\n\nNothing happens in this preview.');
+    }
     else if (act === 'addapp') { S.screen = 'apps'; render(); }
     else if (act === 'toggle') {
       var k = node.getAttribute('data-key');

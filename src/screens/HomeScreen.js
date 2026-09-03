@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, useWindowDimensions, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, T, SHADOW } from '../theme';
 import { humanDuration } from '../format';
 import { DURATION_CHIPS } from '../presets';
 import { canHardBlock } from '../blocker';
-import { Wordmark, IconGear, IconPlus, IconAlert, IconPlay, IconShield, IconLock } from '../icons';
+import {
+  Wordmark, IconGear, IconPlus, IconAlert, IconPlay, IconShield, IconLock, IconTrash,
+} from '../icons';
 import { Hard, HardPress, Button, Chip, Kicker, IconButton, Body } from '../components/ui';
 import DurationInput from '../components/DurationInput';
 import { Enter, layoutPulse } from '../components/motion';
@@ -21,6 +23,7 @@ export default function HomeScreen({
   blockedAppId,
   blockedForever,
   onUnblock,
+  onDeleteApp,
   onStart,
   onEditApp,
   onAddApp,
@@ -267,16 +270,47 @@ export default function HomeScreen({
           onPress={startFromSheet}
         />
         <View style={{ height: 10 }} />
-        <Button
-          label="EDIT THIS APP"
-          variant="outline"
-          compact
-          onPress={() => {
-            const app = sheetApp;
-            setSheetApp(null);
-            if (app) onEditApp(app);
-          }}
-        />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Button
+              label="EDIT"
+              variant="outline"
+              compact
+              onPress={() => {
+                const app = sheetApp;
+                setSheetApp(null);
+                if (app) onEditApp(app);
+              }}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button
+              label="REMOVE"
+              icon={<IconTrash />}
+              variant="outline"
+              compact
+              onPress={() => {
+                const app = sheetApp;
+                if (!app) return;
+                Alert.alert(
+                  `Remove ${app.name}?`,
+                  'It disappears from the grid. The app itself stays on your phone.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Remove',
+                      style: 'destructive',
+                      onPress: () => {
+                        setSheetApp(null);
+                        onDeleteApp(app.id);
+                      },
+                    },
+                  ]
+                );
+              }}
+            />
+          </View>
+        </View>
       </Sheet>
     </View>
   );

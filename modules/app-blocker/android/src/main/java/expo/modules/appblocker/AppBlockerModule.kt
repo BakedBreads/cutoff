@@ -65,6 +65,17 @@ class AppBlockerModule : Module() {
             open(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
         }
 
+        /**
+         * Opens Android's uninstall prompt for Cutoff. The system dialog names
+         * the app by its label, so it reads "Cutoff", and the user still has to
+         * confirm — nothing is removed from in here.
+         */
+        Function("uninstallSelf") {
+            open(
+                Intent(Intent.ACTION_DELETE, Uri.parse("package:${context.packageName}"))
+            )
+        }
+
         Function("openNotificationSettings") {
             val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)

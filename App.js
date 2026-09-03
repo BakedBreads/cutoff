@@ -408,6 +408,7 @@ export default function App() {
             blockedAppId={state.inLockout ? state.appId : ''}
             blockedForever={state.blockedForever}
             onUnblock={handleUnblock}
+            onDeleteApp={deleteApp}
             onStart={handleStart}
             onEditApp={(app) => push('appform', { app })}
             onAddApp={() => push('picker')}

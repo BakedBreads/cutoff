@@ -9,6 +9,7 @@ import {
   UIManager,
   LayoutAnimation,
   useWindowDimensions,
+  StyleSheet,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { C, MONO, SHADOW } from '../theme';
@@ -20,6 +21,13 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 /** Snappy but not bouncy — matches the hard-edged look. */
 export const EASE = Easing.bezier(0.22, 1, 0.36, 1);
 
+/**
+ * Gentler curve for whole-screen movement. Decelerates the whole way out with
+ * no overshoot, which is what makes a page push read as smooth rather than
+ * flicked.
+ */
+export const GLIDE = Easing.bezier(0.32, 0.72, 0, 1);
+
 export const layoutPulse = () =>
   LayoutAnimation.configureNext(
     LayoutAnimation.create(180, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity)
@@ -29,69 +37,83 @@ export const layoutPulse = () =>
    Screen transition — slides forward on push, back on pop.
    ───────────────────────────────────────────────────────────── */
 
+/**
+ * A real page push, not a cross-fade: the arriving screen travels the full
+ * width while the one it replaces slides a short way in the same direction and
+ * dims underneath it. Going back runs the same motion in reverse.
+ *
+ * The outgoing screen has to stay mounted for the parallax to exist at all, so
+ * the element is held in state and dropped the moment the animation settles.
+ */
 export function ScreenTransition({ routeKey, depth, children }) {
   const { width } = useWindowDimensions();
   const anim = useRef(new Animated.Value(1)).current;
-  const prevDepth = useRef(depth);
-  const [dir, setDir] = useState(1);
 
-  useEffect(() => {
+  const [outgoing, setOutgoing] = useState(null);
+  const [dir, setDir] = useState(1);
+  const [key, setKey] = useState(routeKey);
+
+  const prevDepth = useRef(depth);
+  // Holds the previous render's children: an effect writes it *after* render,
+  // so during the render where routeKey changes it still has the old screen.
+  const lastChildren = useRef(children);
+
+  if (key !== routeKey) {
     const forward = depth >= prevDepth.current;
     prevDepth.current = depth;
     setDir(forward ? 1 : -1);
+    setOutgoing(lastChildren.current);
+    setKey(routeKey);
+  }
 
+  useEffect(() => {
+    lastChildren.current = children;
+  });
+
+  useEffect(() => {
     anim.setValue(0);
-    Animated.timing(anim, {
+    const run = Animated.timing(anim, {
       toValue: 1,
-      duration: 420,
-      easing: EASE,
+      duration: 400,
+      easing: GLIDE,
       useNativeDriver: true,
-    }).start();
-  }, [routeKey, depth, anim]);
+    });
+    run.start(({ finished }) => {
+      if (finished) setOutgoing(null);
+    });
+    return () => run.stop();
+  }, [key, anim]);
+
+  const enterX = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [width * dir, 0],
+  });
+
+  // The old screen only travels a quarter as far — that gap between the two
+  // speeds is what reads as depth.
+  const exitX = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -width * 0.25 * dir],
+  });
 
   return (
     <View style={{ flex: 1, overflow: 'hidden' }}>
-      <Animated.View
-        style={{
-          flex: 1,
-          opacity: anim.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 1, 1] }),
-          transform: [
-            {
-              translateX: anim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [Math.round(width * 0.22) * dir, 0],
-              }),
-            },
-          ],
-        }}
-      >
+      {outgoing ? (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.35] }),
+            transform: [{ translateX: exitX }],
+          }}
+        >
+          {outgoing}
+        </Animated.View>
+      ) : null}
+
+      <Animated.View style={{ flex: 1, transform: [{ translateX: enterX }] }}>
         {children}
       </Animated.View>
-
-      {/* A solid ink edge rides in front of the incoming screen, so the change
-          reads as one card being pushed over another rather than a cross-fade. */}
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          top: 0,
-          bottom: 0,
-          width: 5,
-          backgroundColor: C.ink,
-          opacity: anim.interpolate({ inputRange: [0, 0.8, 1], outputRange: [1, 1, 0] }),
-          transform: [
-            {
-              // Sweeps the real screen width — the old build had this pinned at
-              // 460px, so on any other size the edge stopped short or overran.
-              translateX: anim.interpolate({
-                inputRange: [0, 1],
-                outputRange: dir > 0 ? [0, width] : [-width, 0],
-              }),
-            },
-          ],
-          left: 0,
-        }}
-      />
     </View>
   );
 }
