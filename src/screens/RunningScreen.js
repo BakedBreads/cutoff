@@ -5,10 +5,11 @@ import { C, T, MONO } from '../theme';
 import { clock, humanDuration } from '../format';
 import { canHardBlock } from '../blocker';
 import { Hard, Button, Kicker, Body, IconButton } from '../components/ui';
-import { Pulse, ProgressBar, Enter } from '../components/motion';
+import { ProgressBar, Enter, useBlink } from '../components/motion';
 import { IconBack, IconLock, IconGear } from '../icons';
 
 const NEARLY_OVER = 60_000;
+const FINAL_TEN = 10_000;
 
 export default function RunningScreen({
   state,
@@ -24,6 +25,10 @@ export default function RunningScreen({
       ? Math.min(1, Math.max(0, 1 - state.remainingMs / state.durationMs))
       : 0;
   const nearlyOver = state.remainingMs > 0 && state.remainingMs <= NEARLY_OVER;
+  const finalTen = state.remainingMs > 0 && state.remainingMs <= FINAL_TEN;
+  // Hard invert once per second over the last ten. No scaling — this language
+  // is built on edges, and a breathing number looks borrowed from elsewhere.
+  const inverted = useBlink(finalTen, 500);
   const label = String(state.label || app?.name || 'APP').toUpperCase();
 
   return (
@@ -48,24 +53,38 @@ export default function RunningScreen({
           </Text>
         </Enter>
 
-        {/* The clock breathes once it's down to the last minute. */}
-        <Pulse active={nearlyOver} style={{ alignSelf: 'flex-start' }}>
+        {/* Last ten seconds: the whole block flips to solid ink and back. */}
+        <View
+          style={{
+            alignSelf: 'flex-start',
+            backgroundColor: inverted ? C.danger : 'transparent',
+            paddingHorizontal: inverted ? 10 : 0,
+            marginLeft: inverted ? -10 : 0,
+            marginBottom: 4,
+          }}
+        >
           <Text
             style={{
               fontFamily: MONO,
               fontSize: state.remainingMs >= 3600_000 ? 58 : 76,
               fontWeight: '700',
               letterSpacing: -4,
-              color: nearlyOver ? C.danger : C.ink,
-              marginBottom: 4,
+              color: inverted ? C.bg : nearlyOver ? C.danger : C.ink,
             }}
           >
             {clock(state.remainingMs)}
           </Text>
-        </Pulse>
+        </View>
 
-        <Text style={[T.body, { fontSize: 12, marginBottom: 26 }]}>
-          {nearlyOver
+        <Text
+          style={[
+            T.body,
+            { fontSize: 12, marginBottom: 26, color: finalTen ? C.danger : C.dim },
+          ]}
+        >
+          {finalTen
+            ? 'Seconds out.'
+            : nearlyOver
             ? 'Last minute — wrap it up.'
             : `of ${humanDuration(state.durationMs)} · left on the clock`}
         </Text>

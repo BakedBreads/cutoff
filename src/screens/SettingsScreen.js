@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, Alert } from 'react-native';
 import { C, T } from '../theme';
 import { human, humanDuration, dayStamp } from '../format';
 import { DURATION_CHIPS } from '../presets';
 import { canHardBlock, previewBlockScreen, hasOverlayPermission } from '../blocker';
-import { Screen, Hard, Field, Chip, Toggle, Row, Kicker, Button, Body } from '../components/ui';
+import { Screen, Hard, Chip, Toggle, Row, Kicker, Button, Body } from '../components/ui';
 import DurationInput from '../components/DurationInput';
 import { Enter } from '../components/motion';
 import { WeekChart, summarise } from '../components/Stats';
@@ -12,7 +12,7 @@ import { IconEye, IconChevron, IconTrash, IconChart } from '../icons';
 
 // -1 means "until you stop it in the app", 0 means no block at all.
 const FOREVER = -1;
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 
 export default function SettingsScreen({
   settings,
@@ -26,9 +26,6 @@ export default function SettingsScreen({
   onOpenAbout,
   onBack,
 }) {
-  const [submessage, setSubmessage] = useState(settings.submessage);
-  const commitSub = () => onChange({ submessage });
-
   const messages = settings.messages || [];
   const lockValue = Number(settings.lockoutMs);
   const lockMode = lockValue < 0 ? 'forever' : lockValue === 0 ? 'off' : 'timed';
@@ -55,20 +52,15 @@ export default function SettingsScreen({
     }
     previewBlockScreen(
       messages[0] || "TIME'S UP",
-      submessage,
+      settings.submessage || '',
       !!settings.darkBlockScreen,
       settings.soundUri || '',
       settings.soundEnabled !== false
     );
   };
 
-  const leave = () => {
-    commitSub();
-    onBack();
-  };
-
   return (
-    <Screen title="Settings" onBack={leave}>
+    <Screen title="Settings" onBack={onBack}>
       {/* ── the words ────────────────────────────────────────────── */}
       <Kicker style={{ marginBottom: 12 }}>What it says</Kicker>
 
@@ -81,6 +73,7 @@ export default function SettingsScreen({
                 ? messages[0]
                 : `${messages.length} lines · picked at random`
             }
+            // Both lines are edited in place over there, on a live preview.
             onPress={onManageMessages}
             right={<IconChevron size={17} color={C.dim} />}
             last
@@ -88,23 +81,14 @@ export default function SettingsScreen({
         </Hard>
       </Enter>
 
-      <Field
-        label="Second line"
-        value={submessage}
-        onChangeText={setSubmessage}
-        onBlur={commitSub}
-        placeholder="Put the phone down. You said you would."
-        multiline
-        maxLength={140}
-        hint="Sits under the big line. Leave empty to hide it."
-      />
-
       <Hard fill={C.wash} inner={{ padding: 15 }} style={{ marginBottom: 12 }}>
         <Text style={[T.kicker, { marginBottom: 9 }]}>PREVIEW</Text>
         <Text style={[T.label, { fontSize: 18, letterSpacing: -0.3 }]}>
           {(messages[0] || "TIME'S UP").toUpperCase()}
         </Text>
-        {submessage ? <Body style={{ fontSize: 12, marginTop: 8 }}>{submessage}</Body> : null}
+        {settings.submessage ? (
+          <Body style={{ fontSize: 12, marginTop: 8 }}>{settings.submessage}</Body>
+        ) : null}
       </Hard>
 
       <Button

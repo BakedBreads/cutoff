@@ -41,29 +41,55 @@ export function ScreenTransition({ routeKey, depth, children }) {
     anim.setValue(0);
     Animated.timing(anim, {
       toValue: 1,
-      duration: 260,
+      duration: 300,
       easing: EASE,
       useNativeDriver: true,
     }).start();
   }, [routeKey, depth, anim]);
 
   return (
-    <Animated.View
-      style={{
-        flex: 1,
-        opacity: anim,
-        transform: [
-          {
-            translateX: anim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [26 * dir, 0],
-            }),
-          },
-        ],
-      }}
-    >
-      {children}
-    </Animated.View>
+    <View style={{ flex: 1, overflow: 'hidden' }}>
+      <Animated.View
+        style={{
+          flex: 1,
+          opacity: anim.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 1, 1] }),
+          transform: [
+            {
+              translateX: anim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [64 * dir, 0],
+              }),
+            },
+          ],
+        }}
+      >
+        {children}
+      </Animated.View>
+
+      {/* A solid ink edge rides in front of the incoming screen, so the change
+          reads as one card being pushed over another rather than a cross-fade. */}
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: 0,
+          bottom: 0,
+          width: 5,
+          backgroundColor: C.ink,
+          opacity: anim.interpolate({ inputRange: [0, 0.85, 1], outputRange: [1, 1, 0] }),
+          transform: [
+            {
+              translateX: anim.interpolate({
+                inputRange: [0, 1],
+                outputRange: dir > 0 ? [0, 460] : [460, 0],
+              }),
+            },
+          ],
+          left: dir > 0 ? 0 : undefined,
+          right: dir > 0 ? undefined : 0,
+        }}
+      />
+    </View>
   );
 }
 
@@ -107,42 +133,53 @@ export function Enter({ index = 0, delay = 0, distance = 14, children, style }) 
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Pulse — used on the countdown when time is nearly up.
+   Blink — a hard on/off toggle. No scaling, no fading: the whole
+   point of the mono language is edges, so the last seconds
+   invert rather than breathe.
    ───────────────────────────────────────────────────────────── */
 
-export function Pulse({ active, children, style }) {
-  const anim = useRef(new Animated.Value(0)).current;
+export function useBlink(active, period = 500) {
+  const [on, setOn] = useState(false);
 
   useEffect(() => {
     if (!active) {
-      anim.stopAnimation();
-      anim.setValue(0);
-      return;
+      setOn(false);
+      return undefined;
     }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(anim, { toValue: 1, duration: 480, easing: EASE, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0, duration: 620, easing: EASE, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [active, anim]);
+    setOn(true);
+    const id = setInterval(() => setOn((v) => !v), period);
+    return () => clearInterval(id);
+  }, [active, period]);
+
+  return active && on;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Loader — five squares filling in sequence. Reads as a machine
+   working rather than a spinner borrowed from another app.
+   ───────────────────────────────────────────────────────────── */
+
+export function Loader({ count = 5, size = 9, gap = 5, color = C.ink, dim = C.rule, period = 130 }) {
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setStep((s) => (s + 1) % (count + 2)), period);
+    return () => clearInterval(id);
+  }, [count, period]);
 
   return (
-    <Animated.View
-      style={[
-        style,
-        {
-          transform: [
-            { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) },
-          ],
-          opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.72] }),
-        },
-      ]}
-    >
-      {children}
-    </Animated.View>
+    <View style={{ flexDirection: 'row', gap }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <View
+          key={i}
+          style={{
+            width: size,
+            height: size,
+            backgroundColor: i < step ? color : dim,
+          }}
+        />
+      ))}
+    </View>
   );
 }
 
