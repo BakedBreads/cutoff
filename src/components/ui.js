@@ -181,9 +181,6 @@ export const Body = ({ children, style }) => (
   <Text style={[T.body, style]}>{children}</Text>
 );
 
-export const Rule = ({ style }) => (
-  <View style={[{ height: 1, backgroundColor: C.rule }, style]} />
-);
 
 /* ─────────────────────────────────────────────────────────────
    Chip — used for durations and preset picking
@@ -263,90 +260,6 @@ export const Field = ({
     ) : null}
   </View>
 );
-
-/**
- * Big −/+ stepper for picking a duration. Holding a button repeats, so getting
- * from 20 to 90 minutes doesn't take seventy taps.
- */
-export const Stepper = ({ value, onChange, min = 1, max = 600, step = 5, suffix = 'MIN' }) => {
-  const repeat = React.useRef(null);
-  // The interval closes over its own copy of the value, so track it in a ref
-  // rather than reading `value` from a stale render.
-  const latest = React.useRef(value);
-  latest.current = value;
-
-  const bump = (delta) => {
-    const next = Math.max(min, Math.min(max, latest.current + delta));
-    latest.current = next;
-    onChange(next);
-  };
-
-  const stopRepeat = () => {
-    if (repeat.current) clearInterval(repeat.current);
-    repeat.current = null;
-  };
-
-  const startRepeat = (delta) => {
-    stopRepeat();
-    repeat.current = setInterval(() => bump(delta), 110);
-  };
-
-  React.useEffect(() => stopRepeat, []);
-
-  const Btn = ({ delta, plus }) => {
-    const [down, setDown] = React.useState(false);
-    const bar = down ? C.paper : C.ink;
-    return (
-      <Pressable
-        onPress={() => bump(delta)}
-        onLongPress={() => startRepeat(delta)}
-        onPressIn={() => setDown(true)}
-        onPressOut={() => {
-          setDown(false);
-          stopRepeat();
-        }}
-        delayLongPress={280}
-        style={{
-          width: 58,
-          height: 58,
-          borderWidth: 2,
-          borderColor: C.ink,
-          backgroundColor: down ? C.ink : C.paper,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <View style={{ width: 18, height: 2.5, backgroundColor: bar }} />
-        {plus ? (
-          <View
-            style={{ width: 2.5, height: 18, backgroundColor: bar, position: 'absolute' }}
-          />
-        ) : null}
-      </Pressable>
-    );
-  };
-
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-      <Btn delta={-step} />
-      <View style={{ flex: 1, alignItems: 'center' }}>
-        <Text
-          style={{
-            fontFamily: MONO,
-            fontSize: 40,
-            fontWeight: '700',
-            letterSpacing: -2,
-            color: C.ink,
-          }}
-        >
-          {value}
-        </Text>
-        <Text style={[T.kicker, { letterSpacing: 1.6, marginTop: 2 }]}>{suffix}</Text>
-      </View>
-      <Btn delta={step} plus />
-    </View>
-  );
-};
 
 /** Square-knob switch. No rounded corners anywhere in this app. */
 export const Toggle = ({ value, onValueChange }) => (

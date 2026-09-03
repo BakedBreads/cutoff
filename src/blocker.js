@@ -8,8 +8,6 @@ import { requireOptionalNativeModule } from 'expo-modules-core';
  */
 const Native = Platform.OS === 'android' ? requireOptionalNativeModule('AppBlocker') : null;
 
-export const hasNativeBlocker = !!Native;
-
 /** True only where a hard block is actually possible. */
 export const canHardBlock = Platform.OS === 'android' && !!Native;
 

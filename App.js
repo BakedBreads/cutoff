@@ -1,5 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, View, Alert, StatusBar, Animated, Text } from 'react-native';
+import {
+  AppState,
+  BackHandler,
+  useWindowDimensions,
+  View,
+  Alert,
+  StatusBar,
+  Animated,
+  Text,
+} from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
@@ -49,6 +58,7 @@ const EMPTY_STATE = {
 };
 
 export default function App() {
+  const { height } = useWindowDimensions();
   const [ready, setReady] = useState(false);
   const [apps, setApps] = useState([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
@@ -67,9 +77,11 @@ export default function App() {
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
-  // Cold-start entrance: the wordmark holds, then the app fades up behind it.
-  const launch = useRef(new Animated.Value(0)).current;
-  const splash = useRef(new Animated.Value(1)).current;
+  // Cold-start entrance: ink panel, wordmark stamps in, then a hard wipe
+  // slides the panel off the top to reveal the app underneath.
+  const launch = useRef(new Animated.Value(0)).current;  // app reveal
+  const splash = useRef(new Animated.Value(0)).current;  // 0 covered → 1 wiped
+  const mark = useRef(new Animated.Value(0)).current;    // wordmark stamp
 
   // ---- boot ---------------------------------------------------------------
 
@@ -85,24 +97,34 @@ export default function App() {
       setPermissionsOk(!canHardBlock || (hasOverlayPermission() && hasUsagePermission()));
       setReady(true);
 
-      Animated.parallel([
-        Animated.timing(splash, {
-          toValue: 0,
-          duration: 420,
-          delay: 260,
-          easing: EASE,
-          useNativeDriver: true,
-        }),
-        Animated.timing(launch, {
+      Animated.sequence([
+        // 1. the mark stamps down
+        Animated.spring(mark, {
           toValue: 1,
-          duration: 520,
-          delay: 200,
-          easing: EASE,
+          friction: 6,
+          tension: 90,
           useNativeDriver: true,
         }),
+        Animated.delay(240),
+        // 2. the panel wipes upward while the app rises into place
+        Animated.parallel([
+          Animated.timing(splash, {
+            toValue: 1,
+            duration: 560,
+            easing: EASE,
+            useNativeDriver: true,
+          }),
+          Animated.timing(launch, {
+            toValue: 1,
+            duration: 520,
+            delay: 80,
+            easing: EASE,
+            useNativeDriver: true,
+          }),
+        ]),
       ]).start();
     })();
-  }, [launch, splash]);
+  }, [launch, splash, mark]);
 
   // ---- keep session state fresh -------------------------------------------
 
@@ -127,6 +149,28 @@ export default function App() {
     return () => sub.remove();
   }, [refresh]);
 
+  // ---- hardware back ------------------------------------------------------
+
+  const stackRef = useRef(stack);
+  stackRef.current = stack;
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      // The block screen doesn't take back for an answer.
+      if (stateRef.current.expired) return true;
+
+      if (stackRef.current.length > 1) {
+        pop();
+        return true;
+      }
+      // Already home: swallow it so a stray tap can't drop you out of the app.
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
+
   // ---- persistence helpers ------------------------------------------------
 
   const updateApps = (next) => {
@@ -147,7 +191,7 @@ export default function App() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
   };
 
-  const handleStart = async (app, minutes) => {
+  const handleStart = async (app, durationMs) => {
     if (canHardBlock && !hasOverlayPermission()) {
       Alert.alert(
         'One switch first',
@@ -162,7 +206,7 @@ export default function App() {
     }
 
     buzz();
-    const target = { ...app, minutes: minutes ?? app.minutes };
+    const target = { ...app, durationMs: durationMs ?? app.durationMs };
     const result = await Session.start(target, settingsRef.current);
 
     if (!result.ok) {
@@ -181,17 +225,11 @@ export default function App() {
     refresh();
   };
 
-  const handleStop = async () => {
-    await Session.stop();
-    setHistory(await loadHistory());
-    refresh();
-    resetToHome();
-  };
-
   const handleAcknowledge = async () => {
     buzz();
     await Session.acknowledge();
     setHistory(await loadHistory());
+    Session.maybeNotifyStreak(settingsRef.current);
     refresh();
     resetToHome();
   };
@@ -271,7 +309,6 @@ export default function App() {
           app={activeApp}
           settings={settings}
           message={state.message}
-          onStop={handleStop}
           onBackToApp={handleBackToApp}
           onOpenSettings={() => push('settings')}
         />
@@ -311,7 +348,7 @@ export default function App() {
             existing={apps}
             onPick={(draft) =>
               push('appform', {
-                app: { ...draft, minutes: settings.defaultMinutes, isNew: true },
+                app: { ...draft, durationMs: settings.defaultDurationMs, isNew: true },
               })
             }
             onManual={() => push('appform', { app: { isNew: true } })}
@@ -404,7 +441,7 @@ export default function App() {
           ) : null}
         </Animated.View>
 
-        {/* Cold-start splash, faded out once the app is ready. */}
+        {/* Cold-start panel: an ink sheet that wipes off the top edge. */}
         <Animated.View
           pointerEvents="none"
           style={{
@@ -413,18 +450,53 @@ export default function App() {
             right: 0,
             top: 0,
             bottom: 0,
-            backgroundColor: C.bg,
+            backgroundColor: C.ink,
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 18,
-            opacity: splash,
+            gap: 20,
             transform: [
-              { scale: splash.interpolate({ inputRange: [0, 1], outputRange: [1.06, 1] }) },
+              {
+                translateY: splash.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -height - 40],
+                }),
+              },
             ],
           }}
         >
-          <Wordmark size={54} />
-          <Text style={[T.kicker, { letterSpacing: 5, fontSize: 11 }]}>CUTOFF</Text>
+          <Animated.View
+            style={{
+              opacity: mark,
+              transform: [
+                { scale: mark.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }) },
+              ],
+            }}
+          >
+            <Wordmark size={62} color={C.bg} carve={C.ink} />
+          </Animated.View>
+
+          {/* the rule draws out from the centre */}
+          <Animated.View
+            style={{
+              height: 3,
+              backgroundColor: C.bg,
+              width: mark.interpolate({ inputRange: [0, 1], outputRange: [0, 120] }),
+            }}
+          />
+
+          <Animated.Text
+            style={[
+              T.kicker,
+              {
+                color: C.bg,
+                letterSpacing: 6,
+                fontSize: 11,
+                opacity: mark,
+              },
+            ]}
+          >
+            CUTOFF
+          </Animated.Text>
         </Animated.View>
       </View>
     </SafeAreaProvider>

@@ -147,31 +147,6 @@ export function Pulse({ active, children, style }) {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Counter — animates the digits changing on a number.
-   ───────────────────────────────────────────────────────────── */
-
-export function TickText({ value, style }) {
-  const anim = useRef(new Animated.Value(1)).current;
-  const prev = useRef(value);
-
-  useEffect(() => {
-    if (prev.current === value) return;
-    prev.current = value;
-    anim.setValue(0.82);
-    Animated.timing(anim, {
-      toValue: 1,
-      duration: 200,
-      easing: EASE,
-      useNativeDriver: true,
-    }).start();
-  }, [value, anim]);
-
-  return (
-    <Animated.Text style={[style, { opacity: anim }]}>{value}</Animated.Text>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────
    Hold-to-confirm — deliberate friction on ending a session early.
    ───────────────────────────────────────────────────────────── */
 

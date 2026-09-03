@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Image } from 'react-native';
 import { C, T, MONO } from '../theme';
-import { human, initials } from '../format';
+import { humanDuration, initials } from '../format';
 import { canHardBlock, getAppIcon, isAppInstalled } from '../blocker';
 import { resolveAndroidPackage } from '../session';
 import { HardPress } from './ui';
@@ -93,7 +93,7 @@ export default function AppTile({ app, size, blocked, onPress, onLongPress }) {
           <>
             <IconClock size={13} color={C.dim} />
             <Text style={[T.kicker, { letterSpacing: 0.9 }]}>
-              {human(app.minutes).toUpperCase()}
+              {humanDuration(app.durationMs).toUpperCase()}
             </Text>
           </>
         )}

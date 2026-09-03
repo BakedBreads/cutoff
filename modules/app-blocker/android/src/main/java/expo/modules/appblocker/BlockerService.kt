@@ -302,10 +302,10 @@ class BlockerService : Service() {
         // mid-session you can bail out or jump back in; once blocked, the only
         // route out is opening Cutoff itself.
         if (running) {
+            // Deliberately no "end session" — the countdown is the commitment.
             builder
-                .addAction(0, "End session", stopPI)
                 .addAction(0, "Back to $label", backPI)
-                .apply { contentPI?.let { addAction(0, "Cutoff", it) } }
+                .apply { contentPI?.let { addAction(0, "Open Cutoff", it) } }
         } else if (Session.inLockout(this)) {
             builder.apply { contentPI?.let { addAction(0, "Open Cutoff to unblock", it) } }
         } else {

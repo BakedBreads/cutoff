@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Alert, Image } from 'react-native';
 import { C, T, MONO } from '../theme';
-import { human, initials } from '../format';
+import { humanDuration, initials } from '../format';
 import { canHardBlock, getAppIcon, isAppInstalled } from '../blocker';
 import { resolveAndroidPackage } from '../session';
 import { Screen, Hard, HardPress, Button, Kicker, Body } from '../components/ui';
@@ -49,7 +49,7 @@ function AppRow({ app, onEdit, onDelete, last }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
           {installed ? (
             <Text style={[T.kicker, { letterSpacing: 0.9 }]}>
-              {human(app.minutes).toUpperCase()} PER SESSION
+              {humanDuration(app.durationMs).toUpperCase()} PER SESSION
             </Text>
           ) : (
             <>

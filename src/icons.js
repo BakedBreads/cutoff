@@ -109,20 +109,6 @@ export const IconAlert = (p) => (
   </Base>
 );
 
-export const IconGrid = (p) => (
-  <Base {...p}>
-    <Rect x="3" y="3" width="7.5" height="7.5" />
-    <Rect x="13.5" y="3" width="7.5" height="7.5" />
-    <Rect x="3" y="13.5" width="7.5" height="7.5" />
-    <Rect x="13.5" y="13.5" width="7.5" height="7.5" />
-  </Base>
-);
-
-export const IconText = (p) => (
-  <Base {...p}>
-    <Path d="M4 6V4h16v2M12 4v16M8.5 20h7" />
-  </Base>
-);
 
 export const IconEye = (p) => (
   <Base {...p}>
@@ -145,12 +131,6 @@ export const IconSound = (p) => (
   </Base>
 );
 
-export const IconMute = (p) => (
-  <Base {...p}>
-    <Path d="M4 9h3.5L12 4.5v15L7.5 15H4V9z" />
-    <Path d="M16 9.5l5 5M21 9.5l-5 5" />
-  </Base>
-);
 
 export const IconChart = (p) => (
   <Base {...p}>
@@ -167,11 +147,6 @@ export const IconFlame = (p) => (
   </Base>
 );
 
-export const IconMinus = (p) => (
-  <Base {...p}>
-    <Path d="M4 12h16" />
-  </Base>
-);
 
 export const IconRefresh = (p) => (
   <Base {...p}>
@@ -179,12 +154,15 @@ export const IconRefresh = (p) => (
   </Base>
 );
 
-/** Wordmark: a hard-cut "C" built from rectangles. */
-export const Wordmark = ({ size = 26, color = C.ink }) => (
+/**
+ * Wordmark: a hard-cut "C" built from rectangles. `carve` is the negative
+ * space, so it has to match whatever sits behind the mark.
+ */
+export const Wordmark = ({ size = 26, color = C.ink, carve = C.bg }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Rect x="2" y="2" width="20" height="20" fill={color} />
-    <Rect x="7" y="7" width="10" height="4" fill={C.bg} />
-    <Rect x="7" y="7" width="4" height="10" fill={C.bg} />
-    <Rect x="7" y="13" width="10" height="4" fill={C.bg} />
+    <Rect x="7" y="7" width="10" height="4" fill={carve} />
+    <Rect x="7" y="7" width="4" height="10" fill={carve} />
+    <Rect x="7" y="13" width="10" height="4" fill={carve} />
   </Svg>
 );

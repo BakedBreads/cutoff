@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StatusBar, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, MONO } from '../theme';
-import { clock, humanMs } from '../format';
+import { clock, humanDuration } from '../format';
 import { canHardBlock } from '../blocker';
 import { HardPress } from '../components/ui';
 import { HoldButton, EASE } from '../components/motion';
@@ -118,7 +118,7 @@ export default function TimeUpScreen({ state, settings, message, onDone, onEndLo
         >
           {String(state.label || 'APP').toUpperCase()}
           {'   ·   '}
-          {humanMs(state.durationMs).toUpperCase()} SPENT
+          {humanDuration(state.durationMs).toUpperCase()} SPENT
         </Text>
 
         {blocked ? (

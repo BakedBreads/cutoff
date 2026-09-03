@@ -2,11 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, T, SHADOW } from '../theme';
-import { human } from '../format';
+import { humanDuration } from '../format';
 import { DURATION_CHIPS } from '../presets';
 import { canHardBlock } from '../blocker';
 import { Wordmark, IconGear, IconPlus, IconAlert, IconPlay, IconShield, IconLock } from '../icons';
-import { Hard, HardPress, Button, Chip, Kicker, IconButton, Body, Stepper } from '../components/ui';
+import { Hard, HardPress, Button, Chip, Kicker, IconButton, Body } from '../components/ui';
+import DurationInput from '../components/DurationInput';
 import { Enter, layoutPulse } from '../components/motion';
 import AppTile from '../components/AppTile';
 import StatsStrip from '../components/Stats';
@@ -29,7 +30,7 @@ export default function HomeScreen({
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [sheetApp, setSheetApp] = useState(null);
-  const [sheetMinutes, setSheetMinutes] = useState(20);
+  const [sheetMs, setSheetMs] = useState(20 * 60_000);
 
   const tile = useMemo(
     () => Math.floor((width - 40 - 12) / 2) - SHADOW,
@@ -37,7 +38,7 @@ export default function HomeScreen({
   );
 
   const openSheet = (app) => {
-    setSheetMinutes(app.minutes);
+    setSheetMs(app.durationMs);
     setSheetApp(app);
   };
 
@@ -52,13 +53,13 @@ export default function HomeScreen({
       return;
     }
     if (settings.confirmBeforeStart) openSheet(app);
-    else onStart(app, app.minutes);
+    else onStart(app, app.durationMs);
   };
 
   const startFromSheet = () => {
     const app = sheetApp;
     setSheetApp(null);
-    if (app) onStart(app, sheetMinutes);
+    if (app) onStart(app, sheetMs);
   };
 
   return (
@@ -226,18 +227,18 @@ export default function HomeScreen({
         <Text style={[T.kicker, { marginBottom: 14 }]}>HOW LONG?</Text>
 
         <View style={{ marginBottom: 18 }}>
-          <Stepper value={sheetMinutes} onChange={setSheetMinutes} min={1} max={600} step={5} />
+          <DurationInput valueMs={sheetMs} onChange={setSheetMs} />
         </View>
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 22 }}>
-          {DURATION_CHIPS.map((m) => (
+          {DURATION_CHIPS.map((ms) => (
             <Chip
-              key={m}
-              label={human(m)}
-              active={sheetMinutes === m}
+              key={ms}
+              label={humanDuration(ms)}
+              active={sheetMs === ms}
               onPress={() => {
                 layoutPulse();
-                setSheetMinutes(m);
+                setSheetMs(ms);
               }}
             />
           ))}
@@ -255,13 +256,13 @@ export default function HomeScreen({
             <Text style={[T.body, { fontSize: 11, marginTop: 8 }]}>
               {Number(settings.lockoutMinutes) < 0
                 ? `…then ${sheetApp?.name} stays blocked every time you open it, until you stop it here.`
-                : `…then ${sheetApp?.name} stays locked for ${human(settings.lockoutMinutes)}.`}
+                : `…then ${sheetApp?.name} stays locked for ${settings.lockoutMinutes} min.`}
             </Text>
           ) : null}
         </Hard>
 
         <Button
-          label={`START ${human(sheetMinutes).toUpperCase()}`}
+          label={`START ${humanDuration(sheetMs).toUpperCase()}`}
           icon={<IconPlay />}
           onPress={startFromSheet}
         />
