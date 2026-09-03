@@ -30,7 +30,7 @@ import {
 } from './src/blocker';
 import * as Session from './src/session';
 
-import { ScreenTransition, EASE } from './src/components/motion';
+import { ScreenTransition, EASE, Loader } from './src/components/motion';
 import { Wordmark } from './src/icons';
 import HomeScreen from './src/screens/HomeScreen';
 import RunningScreen from './src/screens/RunningScreen';
@@ -431,7 +431,12 @@ export default function App() {
             flex: 1,
             opacity: launch,
             transform: [
-              { scale: launch.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) },
+              {
+                translateY: launch.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [18, 0],
+                }),
+              },
             ],
           }}
         >
@@ -502,6 +507,12 @@ export default function App() {
           >
             CUTOFF
           </Animated.Text>
+
+          {/* Squares filling in sequence — reads as the app doing work, rather
+              than a spinner borrowed from some other design language. */}
+          <Animated.View style={{ opacity: mark, marginTop: 4 }}>
+            <Loader color={C.bg} dim="#3A3A3A" size={8} gap={5} />
+          </Animated.View>
         </Animated.View>
       </View>
     </SafeAreaProvider>
