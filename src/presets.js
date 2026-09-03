@@ -102,8 +102,6 @@ export const LIBRARY = [
   },
 ];
 
-export const findPreset = (key) => LIBRARY.find((a) => a.key === key) || null;
-
 /** What a brand-new install starts with. */
 export const DEFAULT_APPS = [
   {
@@ -111,7 +109,7 @@ export const DEFAULT_APPS = [
     name: 'TikTok',
     android: LIBRARY[0].android,
     ios: LIBRARY[0].ios,
-    minutes: 20,
+    durationMs: 20 * 60_000,
   },
 ];
 
@@ -125,8 +123,8 @@ export const DEFAULT_SETTINGS = {
    * -1 = until you stop it in Cutoff (the default), 0 = off, or a minute count.
    */
   lockoutMinutes: -1,
-  /** Default length for newly added apps. */
-  defaultMinutes: 20,
+  /** Default length for newly added apps, in milliseconds. */
+  defaultDurationMs: 20 * 60_000,
   /** Block screen palette: false = paper (white), true = blackout. */
   darkBlockScreen: false,
   vibrate: true,
@@ -139,11 +137,23 @@ export const DEFAULT_SETTINGS = {
   soundName: 'Default alarm',
   /** Keep the tone going until the block screen is dismissed. */
   loopSound: false,
-  /** Make ending a session early require a deliberate press-and-hold. */
-  holdToEnd: true,
+  /** Fire a notification when a day streak grows. */
+  streakNotifications: true,
 };
 
-export const DURATION_CHIPS = [5, 10, 15, 20, 30, 45, 60, 90];
+/** Quick-pick durations, in milliseconds. */
+export const DURATION_CHIPS = [
+  30_000,
+  60_000,
+  5 * 60_000,
+  10 * 60_000,
+  15 * 60_000,
+  20 * 60_000,
+  30 * 60_000,
+  45 * 60_000,
+  60 * 60_000,
+  90 * 60_000,
+];
 
 /** Ready-made lines, offered when adding a new message. */
 export const MESSAGE_IDEAS = [

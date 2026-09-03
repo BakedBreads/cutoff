@@ -2,11 +2,11 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, T, MONO } from '../theme';
-import { clock, humanMs } from '../format';
+import { clock, humanDuration } from '../format';
 import { canHardBlock } from '../blocker';
 import { Hard, Button, Kicker, Body, IconButton } from '../components/ui';
-import { Pulse, ProgressBar, HoldButton, Enter } from '../components/motion';
-import { IconStop, IconBack, IconLock, IconGear } from '../icons';
+import { Pulse, ProgressBar, Enter } from '../components/motion';
+import { IconBack, IconLock, IconGear } from '../icons';
 
 const NEARLY_OVER = 60_000;
 
@@ -15,7 +15,6 @@ export default function RunningScreen({
   app,
   settings,
   message,
-  onStop,
   onBackToApp,
   onOpenSettings,
 }) {
@@ -68,7 +67,7 @@ export default function RunningScreen({
         <Text style={[T.body, { fontSize: 12, marginBottom: 26 }]}>
           {nearlyOver
             ? 'Last minute — wrap it up.'
-            : `of ${humanMs(state.durationMs)} · left on the clock`}
+            : `of ${humanDuration(state.durationMs)} · left on the clock`}
         </Text>
 
         <View style={{ marginBottom: 26 }}>
@@ -108,20 +107,17 @@ export default function RunningScreen({
         </Enter>
       </View>
 
-      <Button
-        label={`BACK TO ${label}`}
-        icon={<IconBack />}
-        variant="outline"
-        onPress={onBackToApp}
-      />
-      <View style={{ height: 10 }} />
+      <Button label={`BACK TO ${label}`} icon={<IconBack />} onPress={onBackToApp} />
 
-      {/* Bailing out early takes a deliberate hold, not a stray tap. */}
-      {settings.holdToEnd !== false ? (
-        <HoldButton label="HOLD TO END EARLY" holdLabel="KEEP HOLDING…" onComplete={onStop} />
-      ) : (
-        <Button label="END SESSION NOW" icon={<IconStop />} onPress={onStop} />
-      )}
+      {/* No way to end a session early — starting one is the commitment. */}
+      <Text
+        style={[
+          T.body,
+          { fontSize: 11, textAlign: 'center', marginTop: 14, color: C.dimmer },
+        ]}
+      >
+        The clock doesn't stop. Sit it out.
+      </Text>
     </View>
   );
 }

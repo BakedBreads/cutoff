@@ -15,7 +15,11 @@ import {
   saveFallbackSession,
   clearFallbackSession,
   pushHistory,
+  loadHistory,
+  loadNotifiedStreak,
+  saveNotifiedStreak,
 } from './storage';
+import { summarise } from './components/Stats';
 
 /**
  * One session API for both platforms.
@@ -58,6 +62,12 @@ Notifications.setNotificationHandler({
 export const initNotifications = async () => {
   try {
     if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('cutoff-streak', {
+        name: 'Streaks',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        sound: null,
+        vibrationPattern: [0, 60],
+      });
       await Notifications.setNotificationChannelAsync('cutoff-alarm', {
         name: "Time's up",
         importance: Notifications.AndroidImportance.MAX,
@@ -127,6 +137,38 @@ export const pickMessage = (settings) => {
   const list = (settings.messages || []).filter((m) => String(m || '').trim());
   if (list.length === 0) return "TIME'S UP";
   return list[Math.floor(Math.random() * list.length)];
+};
+
+/**
+ * Congratulates a growing day streak, at most once per streak length. Fires
+ * right after a session is banked, while the win is still fresh.
+ */
+export const maybeNotifyStreak = async (settings) => {
+  if (settings.streakNotifications === false) return null;
+  try {
+    const history = await loadHistory();
+    const { streak, todayMins } = summarise(history);
+    if (streak < 2) return null;
+
+    const alreadyTold = Number(await loadNotifiedStreak()) || 0;
+    if (streak <= alreadyTold) return null;
+    await saveNotifiedStreak(streak);
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `${streak} day streak`,
+        body:
+          `${Math.round(todayMins)} min logged today. ` +
+          `Come back tomorrow and it's ${streak + 1}.`,
+        sound: false,
+        ...(Platform.OS === 'android' ? { channelId: 'cutoff-streak' } : {}),
+      },
+      trigger: null,
+    });
+    return streak;
+  } catch (e) {
+    return null;
+  }
 };
 
 // ---- launching -------------------------------------------------------------
@@ -237,8 +279,8 @@ export const getState = () => {
 };
 
 export const start = async (app, settings) => {
-  const minutes = Number(app.minutes) || settings.defaultMinutes || 20;
-  const durationMs = minutes * 60_000;
+  const durationMs =
+    Number(app.durationMs) || Number(settings.defaultDurationMs) || 20 * 60_000;
   const lockoutSetting = Number(settings.lockoutMinutes);
   const lockoutMs =
     lockoutSetting < 0 ? -1 : Math.max(0, lockoutSetting || 0) * 60_000;

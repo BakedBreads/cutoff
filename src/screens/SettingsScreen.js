@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, Alert } from 'react-native';
 import { C, T } from '../theme';
-import { human, dayStamp, humanMs } from '../format';
+import { human, humanDuration, dayStamp } from '../format';
 import { DURATION_CHIPS } from '../presets';
 import { canHardBlock, previewBlockScreen, hasOverlayPermission } from '../blocker';
 import { Screen, Hard, Field, Chip, Toggle, Row, Kicker, Button, Body } from '../components/ui';
@@ -180,12 +180,12 @@ export default function SettingsScreen({
       <Kicker style={{ marginTop: 34, marginBottom: 6 }}>Behaviour</Kicker>
       <Hard inner={{ paddingHorizontal: 15 }} style={{ marginTop: 12 }}>
         <Row
-          title="Hold to end early"
-          subtitle="Ending a session takes a press-and-hold, not one tap"
+          title="Streak notifications"
+          subtitle="A nudge when your run of days grows"
           right={
             <Toggle
-              value={settings.holdToEnd !== false}
-              onValueChange={(v) => onChange({ holdToEnd: v })}
+              value={settings.streakNotifications !== false}
+              onValueChange={(v) => onChange({ streakNotifications: v })}
             />
           }
         />
@@ -205,12 +205,12 @@ export default function SettingsScreen({
       {/* ── defaults ─────────────────────────────────────────────── */}
       <Kicker style={{ marginTop: 34, marginBottom: 14 }}>Default timer for new apps</Kicker>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {DURATION_CHIPS.map((m) => (
+        {DURATION_CHIPS.map((ms) => (
           <Chip
-            key={m}
-            label={human(m)}
-            active={Number(settings.defaultMinutes) === m}
-            onPress={() => onChange({ defaultMinutes: m })}
+            key={ms}
+            label={humanDuration(ms)}
+            active={Number(settings.defaultDurationMs) === ms}
+            onPress={() => onChange({ defaultDurationMs: ms })}
           />
         ))}
       </View>
@@ -260,7 +260,7 @@ export default function SettingsScreen({
               <Row
                 key={`${h.at}-${i}`}
                 title={h.app}
-                subtitle={`${dayStamp(h.at)} · ${humanMs(h.actualMs)}${
+                subtitle={`${dayStamp(h.at)} · ${humanDuration(h.actualMs)}${
                   h.endedEarly ? ' · ended early' : ''
                 }`}
                 last={i === arr.length - 1}
@@ -290,7 +290,7 @@ export default function SettingsScreen({
 
       <View style={{ height: 40 }} />
       <Body style={{ fontSize: 11, textAlign: 'center', color: C.dimmer }}>
-        CUTOFF v1.1 · {canHardBlock ? 'native android build' : 'timer mode'}
+        CUTOFF v1.2 · {canHardBlock ? 'native android build' : 'timer mode'}
       </Body>
     </Screen>
   );

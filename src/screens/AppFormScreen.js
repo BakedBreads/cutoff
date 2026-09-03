@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, Alert } from 'react-native';
-import { C, T } from '../theme';
-import { human, uid } from '../format';
+import { View, Alert } from 'react-native';
+import { C } from '../theme';
+import { humanDuration, uid } from '../format';
 import { DURATION_CHIPS } from '../presets';
 import { canHardBlock, launchApp, resolvePackage } from '../blocker';
-import { Screen, Hard, Field, Chip, Button, Kicker, Body } from '../components/ui';
+import { Screen, Field, Chip, Button, Kicker, Body } from '../components/ui';
+import DurationInput from '../components/DurationInput';
 import { IconCheck, IconPlay, IconAlert } from '../icons';
 
 const splitList = (text) =>
@@ -17,23 +18,14 @@ export default function AppFormScreen({ app, settings, onSave, onBack }) {
   const editing = !!app?.id && !app?.isNew;
 
   const [name, setName] = useState(app?.name || '');
-  const [minutes, setMinutes] = useState(app?.minutes ?? settings.defaultMinutes ?? 20);
-  const [custom, setCustom] = useState('');
+  const [durationMs, setDurationMs] = useState(
+    app?.durationMs ?? settings.defaultDurationMs ?? 20 * 60_000
+  );
   const [android, setAndroid] = useState((app?.android || []).join('\n'));
   const [ios, setIos] = useState((app?.ios || []).join('\n'));
 
   const androidList = splitList(android);
   const iosList = splitList(ios);
-
-  const applyCustom = () => {
-    const n = parseInt(custom, 10);
-    if (Number.isFinite(n) && n > 0 && n <= 600) {
-      setMinutes(n);
-      setCustom('');
-    } else if (custom) {
-      Alert.alert('Pick 1–600 minutes', 'That number is out of range.');
-    }
-  };
 
   const test = () => {
     if (canHardBlock) {
@@ -75,10 +67,15 @@ export default function AppFormScreen({ app, settings, onSave, onBack }) {
       return;
     }
 
+    if (!durationMs || durationMs < 1000) {
+      Alert.alert('Set a length', 'The timer needs to be at least one second.');
+      return;
+    }
+
     onSave({
       id: app?.id || uid(),
       name: trimmed,
-      minutes: Number(minutes) || 20,
+      durationMs,
       android: androidList,
       ios: iosList,
       preset: app?.preset,
@@ -100,33 +97,22 @@ export default function AppFormScreen({ app, settings, onSave, onBack }) {
         hint="What shows on the tile."
       />
 
-      <Kicker style={{ marginBottom: 12 }}>Timer length</Kicker>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-        {DURATION_CHIPS.map((m) => (
-          <Chip key={m} label={human(m)} active={minutes === m} onPress={() => setMinutes(m)} />
+      <Kicker style={{ marginBottom: 14 }}>Timer length</Kicker>
+
+      <View style={{ marginBottom: 18 }}>
+        <DurationInput valueMs={durationMs} onChange={setDurationMs} />
+      </View>
+
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 26 }}>
+        {DURATION_CHIPS.map((ms) => (
+          <Chip
+            key={ms}
+            label={humanDuration(ms)}
+            active={durationMs === ms}
+            onPress={() => setDurationMs(ms)}
+          />
         ))}
       </View>
-
-      <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginBottom: 24 }}>
-        <View style={{ flex: 1 }}>
-          <Field
-            value={custom}
-            onChangeText={setCustom}
-            onBlur={applyCustom}
-            placeholder="Custom minutes"
-            keyboardType="number-pad"
-            maxLength={3}
-          />
-        </View>
-        <View style={{ paddingTop: 0 }}>
-          <Button label="SET" variant="outline" compact onPress={applyCustom} />
-        </View>
-      </View>
-
-      <Hard fill={C.wash} inner={{ padding: 14 }} style={{ marginBottom: 26 }}>
-        <Text style={[T.kicker, { marginBottom: 6 }]}>CURRENT</Text>
-        <Text style={[T.title, { fontSize: 22 }]}>{human(minutes)} per session</Text>
-      </Hard>
 
       {/* ── targets ──────────────────────────────────────────────── */}
       <Kicker style={{ marginBottom: 12 }}>Where it points</Kicker>
