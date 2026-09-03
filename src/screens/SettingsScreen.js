@@ -12,7 +12,7 @@ import { IconEye, IconChevron, IconTrash, IconChart } from '../icons';
 
 // -1 means "until you stop it in the app", 0 means no block at all.
 const FOREVER = -1;
-const VERSION = '1.5.0';
+const VERSION = '1.6.0';
 
 export default function SettingsScreen({
   settings,

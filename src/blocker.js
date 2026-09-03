@@ -26,6 +26,7 @@ export const hasUsagePermission = () => safe((n) => n.hasUsagePermission(), fals
 export const requestOverlayPermission = () => safe((n) => n.requestOverlayPermission(), null);
 export const requestUsagePermission = () => safe((n) => n.requestUsagePermission(), null);
 export const openNotificationSettings = () => safe((n) => n.openNotificationSettings(), null);
+export const uninstallSelf = () => safe((n) => n.uninstallSelf(), null);
 
 // ---- app lookup -----------------------------------------------------------
 

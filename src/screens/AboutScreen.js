@@ -3,13 +3,13 @@ import { View, Text, Linking, Alert, Platform } from 'react-native';
 import { C, T, MONO } from '../theme';
 import { human } from '../format';
 import { CONTACT_EMAIL } from '../presets';
-import { canHardBlock } from '../blocker';
+import { canHardBlock, uninstallSelf } from '../blocker';
 import { summarise } from '../components/Stats';
 import { Screen, Hard, Button, Kicker, Body } from '../components/ui';
 import { Enter } from '../components/motion';
-import { Wordmark, IconShield, IconAlert, IconChart } from '../icons';
+import { Wordmark, IconShield, IconAlert, IconChart, IconTrash } from '../icons';
 
-const VERSION = '1.5.0';
+const VERSION = '1.6.0';
 
 export default function AboutScreen({ history, apps, onBack }) {
   const stats = summarise(history);
@@ -145,6 +145,33 @@ export default function AboutScreen({ history, apps, onBack }) {
           </Body>
         </View>
       </Hard>
+
+      {/* ── removing it ────────────────────────────────────────── */}
+      {canHardBlock ? (
+        <>
+          <Kicker style={{ marginTop: 34, marginBottom: 12 }}>Had enough?</Kicker>
+          <Body style={{ marginBottom: 14 }}>
+            Uninstalling takes everything with it — your apps, your wording and the session
+            log all live on this phone and nowhere else. Android will ask you to confirm.
+          </Body>
+          <Button
+            label="UNINSTALL CUTOFF"
+            icon={<IconTrash />}
+            variant="outline"
+            compact
+            onPress={() =>
+              Alert.alert(
+                'Uninstall Cutoff?',
+                'Android will ask you to confirm. Everything stored on this phone goes with it.',
+                [
+                  { text: 'Keep it', style: 'cancel' },
+                  { text: 'Uninstall', style: 'destructive', onPress: uninstallSelf },
+                ]
+              )
+            }
+          />
+        </>
+      ) : null}
 
       <View style={{ marginTop: 34, alignItems: 'center', gap: 8 }}>
         <IconChart size={16} color={C.dimmer} />
