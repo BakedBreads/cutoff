@@ -23,7 +23,7 @@ export default function TimeUpScreen({ state, settings, message, onDone, onEndLo
   const dim = dark ? '#8A8A93' : C.dim;
   const btnFill = dark ? '#F5F4F1' : C.ink;
   const btnInk = dark ? '#0A0A0A' : C.bg;
-  const shadow = dark ? '#3A3A40' : C.ink;
+  const shadow = dark ? '#3A3A40' : C.shadow;
 
   // Entrance: the rule draws itself, then the headline drops in.
   const rule = useRef(new Animated.Value(0)).current;
@@ -163,6 +163,7 @@ export default function TimeUpScreen({ state, settings, message, onDone, onEndLo
             onComplete={onEndLockout}
             fill={btnFill}
             ink={btnInk}
+            shadow={shadow}
           />
 
           {/* Lets you get on with the rest of the app without lifting the block. */}

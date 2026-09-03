@@ -157,6 +157,7 @@ export function HoldButton({
   onComplete,
   fill = C.ink,
   ink = C.paper,
+  shadow = C.shadow,
   offset = SHADOW,
 }) {
   const progress = useRef(new Animated.Value(0)).current;
@@ -202,7 +203,7 @@ export function HoldButton({
           top: offset,
           right: -offset,
           bottom: -offset,
-          backgroundColor: C.ink,
+          backgroundColor: shadow,
         }}
       />
       <Pressable

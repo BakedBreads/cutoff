@@ -21,7 +21,7 @@ export const Hard = ({
   children,
   offset = SHADOW,
   fill = C.paper,
-  shadow = C.ink,
+  shadow = C.shadow,
   border = 2,
 }) => (
   <View style={[{ marginRight: offset, marginBottom: offset }, style]}>
@@ -59,7 +59,7 @@ export const HardPress = ({
   children,
   offset = SHADOW,
   fill = C.paper,
-  shadow = C.ink,
+  shadow = C.shadow,
 }) => {
   const [down, setDown] = useState(false);
   const shift = down ? offset : 0;

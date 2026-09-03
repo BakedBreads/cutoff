@@ -54,6 +54,7 @@ class BlockerService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var lastNotifText = ""
+    private var lastWidgetKey = ""
 
     private val tick = object : Runnable {
         override fun run() {
@@ -103,10 +104,27 @@ class BlockerService : Service() {
 
     // ---- the loop -----------------------------------------------------------
 
+    /**
+     * Redraws the widget only when what it displays would actually change —
+     * a whole second on the countdown is fine, but pushing RemoteViews on every
+     * tick regardless of content is wasteful and gets throttled by the host.
+     */
+    private fun syncWidget(remaining: Long) {
+        val key = when {
+            Session.isRunning(this) -> "run:" + (remaining / 1000L)
+            Session.inLockout(this) -> "lock:" + Session.isIndefinite(this)
+            else -> "idle"
+        }
+        if (key == lastWidgetKey) return
+        lastWidgetKey = key
+        CutoffWidget.refresh(this)
+    }
+
     /** @return true to keep ticking. */
     private fun step(): Boolean {
         val running = Session.isRunning(this)
         val remaining = Session.remainingMs(this)
+        syncWidget(remaining)
 
         if (running) {
             if (remaining <= 0L) {
@@ -204,6 +222,7 @@ class BlockerService : Service() {
     }
 
     private fun shutdown() {
+        CutoffWidget.refresh(this)
         handler.removeCallbacks(tick)
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()

@@ -67,6 +67,7 @@ export const stopNativeSession = () => safe((n) => n.stopSession(), null);
 export const acknowledgeNative = () => safe((n) => n.acknowledge(), null);
 export const endNativeLockout = () => safe((n) => n.endLockout(), null);
 export const dismissOverlay = () => safe((n) => n.dismissOverlay(), null);
+export const refreshWidget = () => safe((n) => n.refreshWidget(), null);
 
 export const getNativeState = () =>
   safe((n) => n.getState(), null);

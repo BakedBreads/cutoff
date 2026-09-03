@@ -5,13 +5,21 @@ import { Platform } from 'react-native';
  * The app is paper-light; the block screen is the inverse.
  */
 export const C = {
+  /* One ground, everywhere. Cards used to sit on a lighter panel than the page,
+     which read as two stacked layers; now borders and shadows do that work. */
   bg: '#F2F1EE',
-  paper: '#FFFFFF',
+  paper: '#F2F1EE',
+  wash: '#F2F1EE',
+
   ink: '#0A0A0A',
   dim: '#6B6B6B',
   dimmer: '#A3A099',
   rule: '#D9D7D2',
-  wash: '#E8E6E1',
+
+  /* Hard shadows are grey, not black — they read as depth rather than a second
+     outline fighting the border. */
+  shadow: '#C3BFB5',
+
   danger: '#C4231A',
   ok: '#1F7A3D',
 };

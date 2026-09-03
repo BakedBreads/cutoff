@@ -252,11 +252,11 @@ export default function HomeScreen({
               ? `  (+${settings.messages.length - 1} more)`
               : ''}
           </Text>
-          {canHardBlock && Number(settings.lockoutMinutes) !== 0 ? (
+          {canHardBlock && Number(settings.lockoutMs) !== 0 ? (
             <Text style={[T.body, { fontSize: 11, marginTop: 8 }]}>
-              {Number(settings.lockoutMinutes) < 0
+              {Number(settings.lockoutMs) < 0
                 ? `…then ${sheetApp?.name} stays blocked every time you open it, until you stop it here.`
-                : `…then ${sheetApp?.name} stays locked for ${settings.lockoutMinutes} min.`}
+                : `…then ${sheetApp?.name} stays locked for ${humanDuration(settings.lockoutMs)}.`}
             </Text>
           ) : null}
         </Hard>

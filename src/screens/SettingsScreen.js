@@ -5,18 +5,14 @@ import { human, humanDuration, dayStamp } from '../format';
 import { DURATION_CHIPS } from '../presets';
 import { canHardBlock, previewBlockScreen, hasOverlayPermission } from '../blocker';
 import { Screen, Hard, Field, Chip, Toggle, Row, Kicker, Button, Body } from '../components/ui';
+import DurationInput from '../components/DurationInput';
 import { Enter } from '../components/motion';
 import { WeekChart, summarise } from '../components/Stats';
 import { IconEye, IconChevron, IconTrash, IconChart } from '../icons';
 
-// -1 is "blocked until you stop it", which is the default.
-const LOCKOUT_CHIPS = [-1, 0, 5, 15, 30, 60];
-
-const lockoutLabel = (m) => {
-  if (m < 0) return 'UNTIL I STOP IT';
-  if (m === 0) return 'OFF';
-  return human(m);
-};
+// -1 means "until you stop it in the app", 0 means no block at all.
+const FOREVER = -1;
+const VERSION = '1.3.0';
 
 export default function SettingsScreen({
   settings,
@@ -27,12 +23,15 @@ export default function SettingsScreen({
   onManageMessages,
   onOpenSounds,
   onOpenPermissions,
+  onOpenAbout,
   onBack,
 }) {
   const [submessage, setSubmessage] = useState(settings.submessage);
   const commitSub = () => onChange({ submessage });
 
   const messages = settings.messages || [];
+  const lockValue = Number(settings.lockoutMs);
+  const lockMode = lockValue < 0 ? 'forever' : lockValue === 0 ? 'off' : 'timed';
   const stats = useMemo(() => summarise(history), [history]);
 
   const preview = () => {
@@ -124,16 +123,29 @@ export default function SettingsScreen({
           : 'Android only — iOS gives no app the ability to watch what you open.'}
       </Body>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {LOCKOUT_CHIPS.map((m) => (
-          <Chip
-            key={m}
-            label={lockoutLabel(m)}
-            active={Number(settings.lockoutMinutes) === m}
-            onPress={() => onChange({ lockoutMinutes: m })}
-          />
-        ))}
+        <Chip
+          label="UNTIL I STOP IT"
+          active={lockMode === 'forever'}
+          onPress={() => onChange({ lockoutMs: FOREVER })}
+        />
+        <Chip
+          label="FOR A WHILE"
+          active={lockMode === 'timed'}
+          onPress={() => onChange({ lockoutMs: 15 * 60_000 })}
+        />
+        <Chip label="OFF" active={lockMode === 'off'} onPress={() => onChange({ lockoutMs: 0 })} />
       </View>
-      {Number(settings.lockoutMinutes) < 0 ? (
+
+      {lockMode === 'timed' ? (
+        <View style={{ marginTop: 18 }}>
+          <DurationInput
+            valueMs={Math.max(1000, Number(settings.lockoutMs) || 0)}
+            onChange={(ms) => onChange({ lockoutMs: ms })}
+          />
+        </View>
+      ) : null}
+
+      {lockMode === 'forever' ? (
         <Body style={{ fontSize: 11, marginTop: 12, color: C.dimmer }}>
           The block screen has no stop button of its own — you have to come back here and
           hold to unblock. That's the point.
@@ -204,6 +216,12 @@ export default function SettingsScreen({
 
       {/* ── defaults ─────────────────────────────────────────────── */}
       <Kicker style={{ marginTop: 34, marginBottom: 14 }}>Default timer for new apps</Kicker>
+      <View style={{ marginBottom: 16 }}>
+        <DurationInput
+          valueMs={Number(settings.defaultDurationMs) || 20 * 60_000}
+          onChange={(ms) => onChange({ defaultDurationMs: ms })}
+        />
+      </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {DURATION_CHIPS.map((ms) => (
           <Chip
@@ -231,9 +249,15 @@ export default function SettingsScreen({
             subtitle="What Cutoff needs to interrupt you"
             onPress={onOpenPermissions}
             right={<IconChevron size={17} color={C.dim} />}
-            last
           />
         ) : null}
+        <Row
+          title="About"
+          subtitle={`Version ${VERSION} · contact · privacy`}
+          onPress={onOpenAbout}
+          right={<IconChevron size={17} color={C.dim} />}
+          last
+        />
       </Hard>
 
       {/* ── history ──────────────────────────────────────────────── */}
@@ -289,9 +313,6 @@ export default function SettingsScreen({
       )}
 
       <View style={{ height: 40 }} />
-      <Body style={{ fontSize: 11, textAlign: 'center', color: C.dimmer }}>
-        CUTOFF v1.2 · {canHardBlock ? 'native android build' : 'timer mode'}
-      </Body>
     </Screen>
   );
 }
