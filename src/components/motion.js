@@ -8,6 +8,7 @@ import {
   View,
   UIManager,
   LayoutAnimation,
+  useWindowDimensions,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { C, MONO, SHADOW } from '../theme';
@@ -29,6 +30,7 @@ export const layoutPulse = () =>
    ───────────────────────────────────────────────────────────── */
 
 export function ScreenTransition({ routeKey, depth, children }) {
+  const { width } = useWindowDimensions();
   const anim = useRef(new Animated.Value(1)).current;
   const prevDepth = useRef(depth);
   const [dir, setDir] = useState(1);
@@ -41,7 +43,7 @@ export function ScreenTransition({ routeKey, depth, children }) {
     anim.setValue(0);
     Animated.timing(anim, {
       toValue: 1,
-      duration: 300,
+      duration: 420,
       easing: EASE,
       useNativeDriver: true,
     }).start();
@@ -52,12 +54,12 @@ export function ScreenTransition({ routeKey, depth, children }) {
       <Animated.View
         style={{
           flex: 1,
-          opacity: anim.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 1, 1] }),
+          opacity: anim.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 1, 1] }),
           transform: [
             {
               translateX: anim.interpolate({
                 inputRange: [0, 1],
-                outputRange: [64 * dir, 0],
+                outputRange: [Math.round(width * 0.22) * dir, 0],
               }),
             },
           ],
@@ -76,17 +78,18 @@ export function ScreenTransition({ routeKey, depth, children }) {
           bottom: 0,
           width: 5,
           backgroundColor: C.ink,
-          opacity: anim.interpolate({ inputRange: [0, 0.85, 1], outputRange: [1, 1, 0] }),
+          opacity: anim.interpolate({ inputRange: [0, 0.8, 1], outputRange: [1, 1, 0] }),
           transform: [
             {
+              // Sweeps the real screen width — the old build had this pinned at
+              // 460px, so on any other size the edge stopped short or overran.
               translateX: anim.interpolate({
                 inputRange: [0, 1],
-                outputRange: dir > 0 ? [0, 460] : [460, 0],
+                outputRange: dir > 0 ? [0, width] : [-width, 0],
               }),
             },
           ],
-          left: dir > 0 ? 0 : undefined,
-          right: dir > 0 ? undefined : 0,
+          left: 0,
         }}
       />
     </View>
@@ -103,8 +106,8 @@ export function Enter({ index = 0, delay = 0, distance = 14, children, style }) 
   useEffect(() => {
     Animated.timing(anim, {
       toValue: 1,
-      duration: 340,
-      delay: delay + index * 55,
+      duration: 460,
+      delay: delay + index * 70,
       easing: EASE,
       useNativeDriver: true,
     }).start();

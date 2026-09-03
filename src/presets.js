@@ -114,7 +114,7 @@ export const DEFAULT_APPS = [
 ];
 
 /** Where feedback goes. Shown on the about screen. */
-export const CONTACT_EMAIL = 'nauf4n2011@gmail.com';
+export const CONTACT_EMAIL = 'parkseoyeon2026@gmail.com';
 
 export const DEFAULT_SETTINGS = {
   /** Big lines for the block screen. One is picked at random per session. */

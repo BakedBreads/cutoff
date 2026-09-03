@@ -226,7 +226,8 @@ class AppBlockerModule : Module() {
                 vibrate = false,
                 soundUri = soundUri,
                 soundEnabled = soundEnabled,
-                loopSound = false
+                loopSound = false,
+                preview = true
             )
             true
         }

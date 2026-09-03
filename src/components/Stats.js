@@ -84,8 +84,6 @@ export function WeekChart({ days, height = 54 }) {
 export default function StatsStrip({ history }) {
   const s = useMemo(() => summarise(history), [history]);
 
-  if (history.length === 0) return null;
-
   return (
     <Hard fill={C.paper} inner={{ padding: 15 }} style={{ marginBottom: 22 }}>
       <View style={{ flexDirection: 'row', gap: 16 }}>
@@ -95,9 +93,13 @@ export default function StatsStrip({ history }) {
             {human(s.todayMins)}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 9 }}>
-            <IconFlame size={13} color={s.streak > 1 ? C.ink : C.dimmer} />
-            <Text style={[T.kicker, { letterSpacing: 0.9, color: s.streak > 1 ? C.dim : C.dimmer }]}>
-              {s.streak > 1 ? `${s.streak} DAY STREAK` : 'NO STREAK YET'}
+            <IconFlame size={13} color={s.streak > 0 ? C.ink : C.dimmer} />
+            <Text style={[T.kicker, { letterSpacing: 0.9, color: s.streak > 0 ? C.dim : C.dimmer }]}>
+              {s.streak > 1
+                ? `${s.streak} DAY STREAK`
+                : s.streak === 1
+                ? 'DAY 1 — KEEP IT'
+                : 'NO STREAK YET'}
             </Text>
           </View>
         </View>

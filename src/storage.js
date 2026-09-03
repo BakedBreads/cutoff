@@ -6,6 +6,9 @@ const K_SETTINGS = 'cutoff.settings.v1';
 const K_HISTORY = 'cutoff.history.v1';
 const K_FALLBACK = 'cutoff.fallbackSession.v1';
 const K_STREAK = 'cutoff.streakNotified.v1';
+// Deadline of the last session written to history, so a finished session
+// is logged exactly once however the user leaves the block screen.
+const K_LOGGED = 'cutoff.lastLoggedEndsAt.v1';
 
 const read = async (key, fallback) => {
   try {
@@ -94,6 +97,9 @@ export const pushHistory = async (entry) => {
 };
 
 export const clearHistory = () => write(K_HISTORY, []);
+
+export const loadLastLogged = () => read(K_LOGGED, 0);
+export const saveLastLogged = (endsAt) => write(K_LOGGED, endsAt);
 
 // ---- iOS / no-native fallback session --------------------------------------
 

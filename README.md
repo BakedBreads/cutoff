@@ -210,14 +210,9 @@ Settings → Apps → Add an app → **Enter it manually**.
   if you ever wanted it on Play you'd swap it for a fixed `<queries>` list.
 - Built against **Expo SDK 52**; `npx expo-doctor` passes 18/18 and both the Android
   and iOS JS bundles build clean.
-- **Heads up about this machine:** there's a stray `node_modules` folder sitting
-  directly in `C:\Users\Naufan\`. Node walks up the directory tree when resolving,
-  so packages missing from a project get silently picked up from there — which is
-  how `expo-asset`, `expo-file-system`, `expo-font` and `expo-keep-awake` were
-  initially resolving at version 57.x (Expo SDK 54+) inside an SDK 52 project.
-  They're now pinned explicitly in `package.json`, so this project is safe. Any
-  *other* JS project under your home folder has the same trap waiting, though —
-  deleting `C:\Users\Naufan\node_modules` is almost certainly the right move if
-  you don't remember creating it.
+- If four of Expo's own dependencies ever resolve to the wrong major version,
+  check for a stray `node_modules` folder in a parent directory of the project —
+  Node walks up the tree when resolving, and a project will silently inherit
+  packages from one. They are pinned explicitly in `package.json` here.
 - The block overlay is always dismissable. An overlay you can't dismiss is a genuinely
   dangerous thing to put on a phone you might need to answer a call on.
